@@ -332,20 +332,8 @@ class UsernameAvailabilityRestServlet(RestServlet):
             ),
         )
 
-        self.inhibit_user_in_use_error = (
-            hs.config.registration.inhibit_user_in_use_error
-        )
-
-    async def on_GET(self, request: Request) -> Tuple[int, JsonDict]:
-        if not self.hs.config.registration.enable_registration:
-            raise SynapseError(
-                403, "Registration has been disabled", errcode=Codes.FORBIDDEN
-            )
-
-        if self.inhibit_user_in_use_error:
-            return 200, {"available": True}
-
-        ip = request.getClientAddress().host
+    async def on_GET(self, request):
+        ip = request.getClientIP()
         with self.ratelimiter.ratelimit(ip) as wait_deferred:
             await wait_deferred
 
