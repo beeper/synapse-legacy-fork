@@ -13,6 +13,7 @@
 # limitations under the License.
 
 
+import ctypes
 import gc
 import logging
 import platform
@@ -34,6 +35,7 @@ from synapse.metrics._types import Collector
 
 """Prometheus metrics for garbage collection"""
 
+libc = ctypes.CDLL("libc.so.6")
 
 logger = logging.getLogger(__name__)
 
@@ -127,6 +129,9 @@ def install_gc_manager() -> None:
 
                 gc_time.labels(i).observe(end - start)
                 gc_unreachable.labels(i).set(unreachable)
+
+                if i == 2:
+                    libc.malloc_trim(0)
 
     gc_task = task.LoopingCall(_maybe_gc)
     gc_task.start(0.1)
