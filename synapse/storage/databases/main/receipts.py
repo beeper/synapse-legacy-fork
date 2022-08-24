@@ -482,9 +482,10 @@ class ReceiptsWorkerStore(SQLBaseStore):
         }
         return results
 
-    @cached(
-        num_args=2,
-    )
+    # Beeper hack: we only have one AS, so no benefit to caching this
+    # @cached(
+    #     num_args=2,
+    # )
     async def get_linearized_receipts_for_all_rooms(
         self,
         to_key: MultiWriterStreamToken,
