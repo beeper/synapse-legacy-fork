@@ -283,14 +283,11 @@ class SyncHandler:
         user_id = sync_config.user.to_string()
         await self.auth_blocking.check_auth_blocking(requester=requester)
 
-        res = await self.response_cache.wrap(
-            sync_config.request_key,
-            self._wait_for_sync_for_user,
+        res = await self._wait_for_sync_for_user(
             sync_config,
             since_token,
             timeout,
             full_state,
-            cache_context=True,
         )
         logger.debug("Returning sync response for %s", user_id)
         return res
@@ -301,7 +298,7 @@ class SyncHandler:
         since_token: Optional[StreamToken],
         timeout: int,
         full_state: bool,
-        cache_context: ResponseCacheContext[SyncRequestKey],
+        # cache_context: ResponseCacheContext[SyncRequestKey],
     ) -> SyncResult:
         """The start of the machinery that produces a /sync response.
 
@@ -366,8 +363,8 @@ class SyncHandler:
             # If that happens, we mustn't cache it, so that when the client comes back
             # with the same cache token, we don't immediately return the same empty
             # result, causing a tightloop. (#8518)
-            if result.next_batch == since_token:
-                cache_context.should_cache = False
+            # if result.next_batch == since_token:
+            #     cache_context.should_cache = False
 
         if result:
             if sync_config.filter_collection.lazy_load_members():
