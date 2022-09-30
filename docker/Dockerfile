@@ -130,7 +130,13 @@ ENV CARGO_NET_GIT_FETCH_WITH_CLI=$CARGO_NET_GIT_FETCH_WITH_CLI
 # used while you develop on the source
 #
 # This is aiming at installing the `[tool.poetry.depdendencies]` from pyproject.toml.
-COPY --from=requirements /synapse/requirements.txt /synapse/
+COPY --from=requirements /synapse/requirements.txt /synapse/requirements.txt
+
+# Beeper: pyston fixes
+# For some utterly stupid reasons pip under pyston doesn't seem capable of upgrading setuptools at the same time as
+# installing packages that use it, so we just hack past it by ignoring the pinned setuptools version. Ugh.
+RUN cp /synapse/requirements.txt /synapse/requirements-with-setuptools.txt && rm -f /synapse/requirements.txt
+RUN cat /synapse/requirements-with-setuptools.txt | grep -v "setuptools==" > /synapse/requirements.txt
 RUN --mount=type=cache,target=/root/.cache/pip \
   pip install --prefix="/install" --no-deps --no-warn-script-location -r /synapse/requirements.txt
 
