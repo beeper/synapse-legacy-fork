@@ -311,6 +311,7 @@ class SyncHandler:
         since_token: Optional[StreamToken] = None,
         timeout: int = 0,
         full_state: bool = False,
+        debug_current_token: Optional[StreamToken] = None,
     ) -> SyncResult:
         """Get the sync for a client if we have new data for it now. Otherwise
         wait for new data to arrive on the server. If the timeout expires, then
@@ -329,6 +330,7 @@ class SyncHandler:
             since_token,
             timeout,
             full_state,
+            debug_current_token,
             cache_context=True,
         )
         logger.debug("Returning sync response for %s", user_id)
@@ -340,6 +342,7 @@ class SyncHandler:
         since_token: Optional[StreamToken],
         timeout: int,
         full_state: bool,
+        debug_current_token: Optional[StreamToken],
         cache_context: ResponseCacheContext[SyncRequestKey],
     ) -> SyncResult:
         """The start of the machinery that produces a /sync response.
@@ -390,7 +393,11 @@ class SyncHandler:
             async def current_sync_callback(
                 before_token: StreamToken, after_token: StreamToken
             ) -> SyncResult:
-                return await self.current_sync_for_user(sync_config, since_token)
+                return await self.current_sync_for_user(
+                    sync_config,
+                    since_token,
+                    debug_current_token=debug_current_token,
+                )
 
             result = await self.notifier.wait_for_events(
                 sync_config.user.to_string(),
@@ -424,6 +431,7 @@ class SyncHandler:
         sync_config: SyncConfig,
         since_token: Optional[StreamToken] = None,
         full_state: bool = False,
+        debug_current_token: Optional[StreamToken] = None,
     ) -> SyncResult:
         """Generates the response body of a sync result, represented as a SyncResult.
 
@@ -434,7 +442,7 @@ class SyncHandler:
         with start_active_span("sync.current_sync_for_user"):
             log_kv({"since_token": since_token})
             sync_result = await self.generate_sync_result(
-                sync_config, since_token, full_state
+                sync_config, since_token, full_state, debug_current_token
             )
 
             set_tag(SynapseTags.SYNC_RESULT, bool(sync_result))
@@ -1379,6 +1387,7 @@ class SyncHandler:
         sync_config: SyncConfig,
         since_token: Optional[StreamToken] = None,
         full_state: bool = False,
+        debug_current_token: Optional[StreamToken] = None,
     ) -> SyncResult:
         """Generates the response body of a sync result.
 
@@ -1409,7 +1418,7 @@ class SyncHandler:
         # this is due to some of the underlying streams not supporting the ability
         # to query up to a given point.
         # Always use the `now_token` in `SyncResultBuilder`
-        now_token = self.event_sources.get_current_token()
+        now_token = debug_current_token or self.event_sources.get_current_token()
         log_kv({"now_token": now_token})
 
         # Since we fetched the users room list before the token, there's a small window
