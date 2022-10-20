@@ -468,17 +468,8 @@ class StreamWorkerStore(EventsWorkerStore, SQLBaseStore):
                 - list of recent events in the room
                 - stream ordering key for the start of the chunk of events returned.
         """
-
-        if to_key.stream > self._events_stream_cache.max_stream_pos:
-            logger.warning(
-                "Selecting from room events stream using position %s ahead of "
-                "the stream cache position %s",
-                to_key.stream,
-                self._events_stream_cache.max_stream_pos,
-            )
-
         room_ids = self._events_stream_cache.get_entities_changed(
-            room_ids, from_key.stream
+            room_ids, from_key.stream, to_key.stream
         )
 
         if not room_ids:
@@ -549,7 +540,7 @@ class StreamWorkerStore(EventsWorkerStore, SQLBaseStore):
             return [], from_key
 
         has_changed = self._events_stream_cache.has_entity_changed(
-            room_id, from_key.stream
+            room_id, from_key.stream, to_key.stream
         )
 
         if not has_changed:
@@ -1343,15 +1334,15 @@ class StreamWorkerStore(EventsWorkerStore, SQLBaseStore):
 
         if rows:
             topo = rows[-1].topological_ordering
-            toke = rows[-1].stream_ordering
+            token = rows[-1].stream_ordering
             if direction == "b":
                 # Tokens are positions between events.
                 # This token points *after* the last event in the chunk.
                 # We need it to point to the event before it in the chunk
                 # when we are going backwards so we subtract one from the
                 # stream part.
-                toke -= 1
-            next_token = RoomStreamToken(topo, toke)
+                token -= 1
+            next_token = RoomStreamToken(topo, token)
         else:
             # TODO (erikj): We should work out what to do here instead.
             next_token = to_token if to_token else from_token
