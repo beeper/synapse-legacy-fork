@@ -161,7 +161,7 @@ class RoomBeeperInboxStateServlet(RestServlet):
     """
 
     PATTERNS = client_patterns(
-        "/user/(?P<user_id>[^/]*)" "/rooms/(?P<room_id>[^/]*)" "/beeper_inbox_state"
+        "/user/(?P<user_id>[^/]*)/rooms/(?P<room_id>[^/]*)/beeper_inbox_state"
     )
 
     def __init__(self, hs: "HomeServer"):
@@ -189,13 +189,13 @@ class RoomBeeperInboxStateServlet(RestServlet):
 
         body = parse_json_object_from_request(request)
 
-        if body["marked_unread"]:
+        if body.get("marked_unread"):
             marked_unread = {"unread": body["marked_unread"], "ts": ts}
             await self.handler.add_account_data_to_room(
                 user_id, room_id, "m.marked_unread", marked_unread
             )
 
-        if body["done"]:
+        if body.get("done"):
             done = {"updated_ts": ts, "at_ts": ts + body["done"].get("atDelta", 0)}
             await self.handler.add_account_data_to_room(
                 user_id, room_id, "com.beeper.inbox.done", done
