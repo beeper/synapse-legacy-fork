@@ -162,7 +162,7 @@ class RoomBeeperInboxStateServlet(RestServlet):
 
     PATTERNS = list(
         client_patterns(
-            "/com.beeper.inboxv3/user/(?P<user_id>[^/]*)/rooms/(?P<room_id>[^/]*)/inbox_state",
+            "/com.beeper.inbox/user/(?P<user_id>[^/]*)/rooms/(?P<room_id>[^/]*)/inbox_state",
             releases=(),  # not in the matrix spec, only include under /unstable
         )
     ) + list(
