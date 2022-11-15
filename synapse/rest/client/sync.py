@@ -171,6 +171,16 @@ class SyncRestServlet(RestServlet):
             device_id=device_id,
         )
 
+        latest_filter_collection = FilterCollection(self.hs, {"room": {"timeline": {"limit": 1}}})
+        latest_request_key = (user, timeout, None, None, full_state, device_id)
+        latest_sync_config = SyncConfig(
+            user=user,
+            filter_collection=latest_filter_collection,
+            is_guest=requester.is_guest,
+            request_key=latest_request_key,
+            device_id=device_id,
+        )
+
         since_token = None
         if since is not None:
             since_token = await StreamToken.from_string(self.store, since)
@@ -200,6 +210,15 @@ class SyncRestServlet(RestServlet):
                 debug_current_token=debug_current_token,
             )
 
+            latest_sync_result = await self.sync_handler.wait_for_sync_for_user(
+                requester,
+                latest_sync_config,
+                since_token=None,
+                timeout=timeout,
+                full_state=full_state,
+                debug_current_token=debug_current_token,
+            )
+
         # the client may have disconnected by now; don't bother to serialize the
         # response if so.
         if request._disconnected:
@@ -210,7 +229,7 @@ class SyncRestServlet(RestServlet):
         # We know that the the requester has an access token since appservices
         # cannot use sync.
         response_content = await self.encode_response(
-            time_now, sync_result, requester.access_token_id, filter_collection
+            time_now, sync_result, latest_sync_result, requester.access_token_id, filter_collection
         )
 
         logger.debug("Event formatting complete")
@@ -221,6 +240,7 @@ class SyncRestServlet(RestServlet):
         self,
         time_now: int,
         sync_result: SyncResult,
+        latest_sync_result: SyncResult,
         access_token_id: Optional[int],
         filter: FilterCollection,
     ) -> JsonDict:
@@ -262,6 +282,9 @@ class SyncRestServlet(RestServlet):
         logger.debug("building sync response dict")
 
         response: JsonDict = defaultdict(dict)
+        response["com.beeper.inbox.preview"] = await self.get_latest_joined(
+            latest_sync_result.joined, time_now, serialize_options
+        )
         response["next_batch"] = await sync_result.next_batch.to_string(self.store)
 
         if sync_result.account_data:
@@ -319,6 +342,29 @@ class SyncRestServlet(RestServlet):
                 }
                 for event in events
             ]
+        }
+
+    async def get_latest_joined(
+        self,
+        rooms: List[JoinedSyncResult],
+        time_now: int,
+        serialize_options: SerializeEventConfig,
+    ) -> JsonDict:
+        joined = await self.encode_joined(
+            rooms, time_now, serialize_options
+        )
+
+        room_ids = list(joined.keys())
+
+        if not len(room_ids):
+            return None
+
+        room_id = room_ids[0]
+        event = joined[room_id]["timeline"]["events"][0]
+
+        return {
+            "event_id": event["event_id"],
+            "origin_server_ts": event["origin_server_ts"]
         }
 
     @trace_with_opname("sync.encode_joined")
