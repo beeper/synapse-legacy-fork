@@ -595,6 +595,8 @@ class ReceiptsWorkerStore(StreamWorkerStore, SQLBaseStore):
         rows: Iterable[Any],
     ) -> None:
         if stream_name == ReceiptsStream.NAME:
+            if not rows:
+                logger.warning("Receipts stream position updated with no rows")
             for row in rows:
                 self.invalidate_caches_for_receipt(
                     row.room_id, row.receipt_type, row.user_id
