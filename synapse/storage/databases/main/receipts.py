@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import logging
+import traceback
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -596,7 +597,10 @@ class ReceiptsWorkerStore(StreamWorkerStore, SQLBaseStore):
     ) -> None:
         if stream_name == ReceiptsStream.NAME:
             if not rows:
-                logger.warning("Receipts stream position updated with no rows")
+                logger.warning(
+                    "Receipts stream position updated with no rows.\n%s",
+                    "".join(traceback.format_stack()),
+                )
             for row in rows:
                 self.invalidate_caches_for_receipt(
                     row.room_id, row.receipt_type, row.user_id
