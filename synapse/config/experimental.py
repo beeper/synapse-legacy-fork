@@ -430,3 +430,8 @@ class ExperimentalConfig(Config):
         self.msc4069_profile_inhibit_propagation = experimental.get(
             "msc4069_profile_inhibit_propagation", False
         )
+
+        # Server-side preview enabled.
+        self.server_side_room_preview_enabled: bool = experimental.get(
+            "server_side_room_preview_enabled", False
+        )
