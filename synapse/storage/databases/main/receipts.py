@@ -802,7 +802,7 @@ class ReceiptsWorkerStore(StreamWorkerStore, SQLBaseStore):
             linearized_event_id,
             room_id,
             now - event_ts,
-            stream_id
+            stream_id,
         )
 
         await self.db_pool.runInteraction(
