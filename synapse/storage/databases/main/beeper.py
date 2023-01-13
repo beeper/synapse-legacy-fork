@@ -140,14 +140,14 @@ class BeeperStore(SQLBaseStore):
                         user_id,
                         room_id
                     FROM
-                        event_push_counts
+                        beeper_user_notification_counts
                     WHERE
                         event_stream_ordering > (
                             SELECT stream_ordering FROM beeper_user_notification_counts_stream_ordering
                         )
                 )
                 UPDATE
-                    event_push_counts epc
+                    beeper_user_notification_counts AS epc
                 SET
                     unreads = CASE WHEN epc.event_stream_ordering = agg.max_eso THEN agg.unreads ELSE 0 END,
                     notifs = CASE WHEN epc.event_stream_ordering = agg.max_eso THEN agg.notifs ELSE 0 END,
@@ -162,7 +162,7 @@ class BeeperStore(SQLBaseStore):
                         SUM(highlights) AS highlights,
                         MAX(event_stream_ordering) AS max_eso
                     FROM
-                        event_push_counts
+                        beeper_user_notification_counts
                     WHERE
                         user_id IN(SELECT user_id FROM recent_rows)
                         AND room_id IN(SELECT room_id FROM recent_rows)
@@ -174,11 +174,14 @@ class BeeperStore(SQLBaseStore):
                     epc.room_id = agg.room_id
                     AND epc.user_id = agg.user_id
                 RETURNING
-                    epc.event_stream_ordering;
+                    event_stream_ordering;
             """
 
             txn.execute(sql)
             orders = list(txn)
+            if not orders:
+                return
+
             max_stream_ordering = max(orders)
             txn.execute(
                 "UPDATE beeper_user_notification_counts_stream_ordering SET stream_ordering = ?",
