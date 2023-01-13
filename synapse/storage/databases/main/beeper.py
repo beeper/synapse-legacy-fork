@@ -115,10 +115,7 @@ class BeeperStore(SQLBaseStore):
                 room_id, event_stream_ordering,
                 user_id, thread_id, notifs, unreads, highlights
             )
-            SELECT (
-                ?, ?,
-                user_id, thread_id, notif, unread, highlight
-            )
+            SELECT ?, ?, user_id, thread_id, notif, unread, highlight
             FROM event_push_actions_staging
             WHERE event_id = ?
         """
