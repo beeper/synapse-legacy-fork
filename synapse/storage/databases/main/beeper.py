@@ -142,6 +142,26 @@ class BeeperStore(SQLBaseStore):
             ),
         )
 
+    def beeper_clear_notification_counts_txn(
+        self,
+        txn: LoggingTransaction,
+        user_id: str,
+        room_id: str,
+        stream_ordering: int,
+    ) -> None:
+        if not self.user_notification_counts_enabled:
+            return
+
+        sql = """
+            DELETE FROM beeper_user_notification_counts
+            WHERE
+                user_id = ?
+                AND room_id = ?
+                AND event_stream_ordering <= ?
+        """
+
+        txn.execute(sql, (user_id, room_id, stream_ordering))
+
     async def beeper_aggregate_notification_counts(self) -> None:
         if not self.user_notification_counts_enabled:
             return
