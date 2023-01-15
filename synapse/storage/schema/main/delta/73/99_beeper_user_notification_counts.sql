@@ -16,4 +16,4 @@ CREATE TABLE beeper_user_notification_counts_stream_ordering (
   CHECK (lock='X')
 );
 
-INSERT INTO beeper_user_notification_counts_stream_ordering (event_stream_ordering) VALUES 0;
+INSERT INTO beeper_user_notification_counts_stream_ordering (event_stream_ordering) VALUES (0);
