@@ -156,7 +156,7 @@ class BeeperStore(SQLBaseStore):
                         beeper_user_notification_counts
                     WHERE
                         event_stream_ordering > (
-                            SELECT stream_ordering FROM beeper_user_notification_counts_stream_ordering
+                            SELECT event_stream_ordering FROM beeper_user_notification_counts_stream_ordering
                         )
                 )
                 UPDATE

@@ -12,6 +12,8 @@ CREATE TABLE beeper_user_notification_counts (
 
 CREATE TABLE beeper_user_notification_counts_stream_ordering (
   lock CHAR(1) NOT NULL DEFAULT 'X' UNIQUE,  -- Makes sure this table only has one row.
-  stream_ordering BIGINT NOT NULL,
+  event_stream_ordering BIGINT NOT NULL,
   CHECK (lock='X')
 );
+
+INSERT INTO beeper_user_notification_counts_stream_ordering (event_stream_ordering) VALUES 0;
