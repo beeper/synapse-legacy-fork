@@ -28,7 +28,14 @@ class BeeperStore(SQLBaseStore):
     ):
         super().__init__(database, db_conn, hs)
 
-        if hs.config.worker.run_background_tasks:
+        self.user_notification_counts_enabled: bool = (
+            hs.config.experimental.beeper_user_notification_counts_enabled
+        )
+
+        if (
+            self.user_notification_counts_enabled
+            and hs.config.worker.run_background_tasks
+        ):
             self.aggregate_notification_counts_loop = self._clock.looping_call(
                 self.beeper_aggregate_notification_counts, 30 * 1000
             )
@@ -105,11 +112,14 @@ class BeeperStore(SQLBaseStore):
             beeper_cleanup_tombstoned_room_txn,
         )
 
-    @staticmethod
     def beeper_add_notification_counts_txn(
+        self,
         txn: LoggingTransaction,
         notifiable_events: List[EventBase],
     ) -> None:
+        if not self.user_notification_counts_enabled:
+            return
+
         sql = """
             INSERT INTO beeper_user_notification_counts (
                 room_id, event_stream_ordering,
@@ -133,6 +143,9 @@ class BeeperStore(SQLBaseStore):
         )
 
     async def beeper_aggregate_notification_counts(self) -> None:
+        if not self.user_notification_counts_enabled:
+            return
+
         def aggregate_txn(txn: LoggingTransaction) -> None:
             sql = """
                 WITH recent_rows AS (  -- Aggregate the tables, flag aggregated rows for deletion
