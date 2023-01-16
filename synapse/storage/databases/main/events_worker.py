@@ -309,26 +309,6 @@ class EventsWorkerStore(SQLBaseStore):
             id_column="chain_id",
         )
 
-    def process_replication_rows(
-        self,
-        stream_name: str,
-        instance_name: str,
-        token: int,
-        rows: Iterable[Any],
-    ) -> None:
-        if stream_name == UnPartialStatedEventStream.NAME:
-            for row in rows:
-                assert isinstance(row, UnPartialStatedEventStreamRow)
-
-                self.is_partial_state_event.invalidate((row.event_id,))
-
-                if row.rejection_status_changed:
-                    # If the partial-stated event became rejected or unrejected
-                    # when it wasn't before, we need to invalidate this cache.
-                    self._invalidate_local_get_event_cache(row.event_id)
-
-        super().process_replication_rows(stream_name, instance_name, token, rows)
-
     def process_replication_position(
         self, stream_name: str, instance_name: str, token: int
     ) -> None:
