@@ -40,7 +40,8 @@ jobs:
   test-sytest:
     runs-on: ubuntu-latest
     container:
-      image: matrixdotorg/sytest-synapse:buster
+      # https://github.com/matrix-org/sytest/commit/9caca948ce350efd5eda824347dd5ae9be44c322
+      image: matrixdotorg/sytest-synapse:buster@sha256:9e4e155e7e17828783bc5321c9bcc87ae3ced1f7caf23905ae526e3e08cf4e7a
       volumes:
         - ${{ github.workspace }}:/src
       env:
