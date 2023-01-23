@@ -47,19 +47,30 @@ class BeeperStore(SQLBaseStore):
     ) -> Optional[Tuple[str, int]]:
         def beeper_preview_txn(txn: LoggingTransaction) -> Optional[Tuple[str, int]]:
             sql = """
-            SELECT e.event_id, COALESCE(re.origin_server_ts, e.origin_server_ts) as origin_server_ts
+            SELECT COALESCE(re.event_id, e.event_id), e.origin_server_ts
             FROM events AS e
             LEFT JOIN redactions as r
                 ON e.event_id = r.redacts
-            -- Join to relations to find replacements
+            -- Join to relations from this event -> others to ignore edit events, we want to
+            -- skip events that replace others (caveat below) as they appear out-of order.
             LEFT JOIN event_relations as er
-                ON e.event_id = er.event_id AND er.relation_type = 'm.replace'
-            -- Join the original event that was replaced
+                ON e.event_id = er.event_id
+            -- Join to relations from other events -> this event to find any editing event, this
+            -- allows us to return the edited (newer) event, handling the case where the preview
+            -- event has been edited by the next event.
+            LEFT JOIN event_relations as err
+                ON e.event_id = err.relates_to_id AND err.relation_type = 'm.replace'
+            -- Join the replacing event
             LEFT JOIN events as re
-                ON re.event_id = er.relates_to_id
+                ON re.event_id = err.event_id
             WHERE
                 e.stream_ordering <= ?
                 AND e.room_id = ?
+                AND (
+                    -- No relation or not replacements, so may include threads/etc
+                    er.relation_type IS NULL
+                    OR er.relation_type != 'm.replace'
+                )
                 AND r.redacts IS NULL
                 AND (
                     e.type = 'm.room.message'
