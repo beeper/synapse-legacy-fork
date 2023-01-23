@@ -89,7 +89,7 @@ class BeeperStore(SQLBaseStore):
                 LEFT JOIN event_relations as er
                     ON e.event_id = er.relates_to_id AND er.relation_type = 'm.replace'
                 LEFT JOIN events as e_replacement
-                    ON er.relates_to_id = e_replacement.event_id
+                    ON er.event_id = e_replacement.event_id
                 ORDER BY e_replacement.origin_server_ts DESC
                 LIMIT 1
             )
