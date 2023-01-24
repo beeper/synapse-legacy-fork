@@ -951,6 +951,7 @@ class EventsWorkerStore(SQLBaseStore):
             if ret:
                 try:
                     ret.event
+                    logger.info("Event exists from Redis: %r", ret.event)
                 except AttributeError:
                     logger.warning(
                         "Skipping broken Redis cache item: eventID=%s", event_id
