@@ -942,6 +942,7 @@ class EventsWorkerStore(SQLBaseStore):
             events: list of event_ids to fetch
             update_metrics: Whether to update the cache hit ratio metrics
         """
+        return {}
         event_map = {}
 
         for event_id in events:
