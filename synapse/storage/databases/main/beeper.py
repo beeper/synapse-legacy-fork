@@ -11,7 +11,6 @@ from synapse.storage.database import (
     LoggingTransaction,
 )
 from synapse.types import RoomStreamToken
-from synapse.util.caches.descriptors import cached
 
 if TYPE_CHECKING:
     from synapse.server import HomeServer
@@ -41,7 +40,6 @@ class BeeperStore(SQLBaseStore):
             )
             self.is_aggregating_notification_counts = False
 
-    @cached(max_entries=50000, num_args=2, tree=True)
     async def beeper_preview_event_for_room_id_and_user_id(
         self, room_id: str, user_id: str, to_key: RoomStreamToken
     ) -> Optional[Tuple[str, int]]:
