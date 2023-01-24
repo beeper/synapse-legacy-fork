@@ -942,7 +942,6 @@ class EventsWorkerStore(SQLBaseStore):
             events: list of event_ids to fetch
             update_metrics: Whether to update the cache hit ratio metrics
         """
-        return {}
         event_map = {}
 
         for event_id in events:
@@ -950,14 +949,6 @@ class EventsWorkerStore(SQLBaseStore):
                 (event_id,), None, update_metrics=update_metrics
             )
             if ret:
-                try:
-                    ret.event
-                    logger.info("Event exists from Redis: %r", ret.event)
-                except AttributeError:
-                    logger.warning(
-                        "Skipping broken Redis cache item: eventID=%s", event_id
-                    )
-                    continue
                 event_map[event_id] = ret
 
         return event_map

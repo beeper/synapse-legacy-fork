@@ -119,6 +119,13 @@ class RedisLruCache(AsyncLruCache, Generic[KT, VT]):
     ) -> Union[None, VT, T]:
         value = await self.redis_shard_cache.get(self.cache_name, _redis_key(key))
         if value is not default:
+            # TODO: this is a temporary hack
+            if not hasattr(value, "event"):
+                logger.warning(
+                    "Skipping broken Redis cache item: eventID=%s", key
+                )
+                return default
+            logger.info("Found OK Redis cache item: eventID=%s", key)
             self.set_local(key, value)
             return value
         return default
