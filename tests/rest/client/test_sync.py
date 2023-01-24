@@ -1091,6 +1091,29 @@ class BeeperRoomPreviewTestCase(unittest.HomeserverTestCase):
         )
         self._check_preview_event_ids(self.tok, {self.room_id: send_3_body["event_id"]})
 
+        # Now second user edits their (currently preview) message again
+        # Check that this does become the preview, over the previous edit
+        send_4_body = self.helper.send_event(
+            room_id=self.room_id,
+            type=EventTypes.Message,
+            content={
+                "body": "hello edit 2",
+                "msgtype": "m.text",
+                "m.relates_to": {
+                    "rel_type": RelationTypes.REPLACE,
+                    "event_id": send_2_body["event_id"],
+                },
+            },
+            tok=self.tok2,
+        )
+        self._check_preview_event_ids(self.tok, {self.room_id: send_4_body["event_id"]})
+
+        # Finally, first user sends a message and this should become the preview
+        send_5_body = self.helper.send(self.room_id, "hello", tok=self.tok)
+        self._check_preview_event_ids(
+            auth_token=self.tok, expected={self.room_id: send_5_body["event_id"]}
+        )
+
 
 class SyncCacheTestCase(unittest.HomeserverTestCase):
     servlets = [
