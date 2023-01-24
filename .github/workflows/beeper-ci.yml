@@ -96,13 +96,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - run: |-
+      - id: generate-docker-tag
+        run: |-
           if [ "${{ github.ref_name }}" = "beeper" ]; then
             tag=$(cat pyproject.toml | grep -E "^version =" | sed -E 's/^version = "(.+)"$/\1/')
           else
             tag="${{ github.head_ref || github.ref_name }}"
           fi
-          echo "tag_base=$tag" >> $GITHUB_ENV
+          echo "tag_base=$tag" >> $GITHUB_OUTPUT
 
   build-python:
     needs:
@@ -123,13 +124,13 @@ jobs:
           docker buildx build \
             --push \
             --platform linux/amd64 \
-            --tag ${{ secrets.CI_REGISTRY }}/synapse:${{ env.tag_base }}-${{ github.sha }} \
+            --tag ${{ secrets.CI_REGISTRY }}/synapse:${{ steps.generate-docker-tag.outputs.tag_base }}-${{ github.sha }} \
             -f docker/Dockerfile \
             .
 
           if [ "${{ github.ref_name }}" = "beeper" ]; then
             docker tag \
-              ${{ secrets.CI_REGISTRY }}/synapse:${{ env.tag_base }}-${{ github.sha }} \
+              ${{ secrets.CI_REGISTRY }}/synapse:${{ steps.generate-docker-tag.outputs.tag_base }}-${{ github.sha }} \
               ${{ secrets.CI_REGISTRY }}/synapse:latest
             docker push ${{ secrets.CI_REGISTRY }}/synapse:latest
           fi
@@ -137,10 +138,10 @@ jobs:
           # Ensure the image works properly
           docker run \
             --entrypoint '' \
-            ${{ secrets.CI_REGISTRY }}/synapse:${{ env.tag_base }}-${{ github.sha }} \
+            ${{ secrets.CI_REGISTRY }}/synapse:${{ steps.generate-docker-tag.outputs.tag_base }}-${{ github.sha }} \
             python -m synapse.app.homeserver --help
 
-          echo "Pushed image: synapse:${{ env.tag_base }}-${{ github.sha }}"
+          echo "Pushed image: synapse:${{ steps.generate-docker-tag.outputs.tag_base }}-${{ github.sha }}"
           if [ "${{ github.ref_name }}" = "beeper" ]; then
             echo "Pushed image: synapse:latest"
           fi
@@ -166,14 +167,14 @@ jobs:
             --platform linux/amd64 \
             --build-arg PYTHON_PREFIX=/usr \
             --build-arg BASE_IMAGE=${{ secrets.CI_REGISTRY }}/pyston-no-pymalloc:slim-amd64-2.3.4 \
-            --tag ${{ secrets.CI_REGISTRY }}/synapse:${{ env.tag_base }}-${{ github.sha }}-pyston \
+            --tag ${{ secrets.CI_REGISTRY }}/synapse:${{ steps.generate-docker-tag.outputs.tag_base }}-${{ github.sha }}-pyston \
             -f docker/Dockerfile \
             .
 
           # Ensure the image works properly
           docker run \
             --entrypoint '' \
-            ${{ secrets.CI_REGISTRY }}/synapse:${{ env.tag_base }}-${{ github.sha }}-pyston \
+            ${{ secrets.CI_REGISTRY }}/synapse:${{ steps.generate-docker-tag.outputs.tag_base }}-${{ github.sha }}-pyston \
             python -m synapse.app.homeserver --help
 
-          echo "Pushed image: synapse:${{ env.tag_base }}-${{ github.sha }}-pyston"
+          echo "Pushed image: synapse:${{ steps.generate-docker-tag.outputs.tag_base }}-${{ github.sha }}-pyston"
