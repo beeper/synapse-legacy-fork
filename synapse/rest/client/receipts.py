@@ -50,7 +50,6 @@ class ReceiptRestServlet(RestServlet):
             ReceiptTypes.READ,
             ReceiptTypes.READ_PRIVATE,
             ReceiptTypes.FULLY_READ,
-            ReceiptTypes.BEEPER_INBOX_DONE,
         }
 
     async def on_POST(

@@ -14,7 +14,7 @@
 import logging
 from typing import TYPE_CHECKING, Iterable, List, Optional, Sequence, Tuple
 
-from synapse.api.constants import EduTypes, ReceiptTypes
+from synapse.api.constants import RECEIPTS_MAX_ROOM_SIZE, EduTypes, ReceiptTypes
 from synapse.appservice import ApplicationService
 from synapse.streams import EventSource
 from synapse.types import (
@@ -24,6 +24,7 @@ from synapse.types import (
     UserID,
     get_domain_from_id,
 )
+from synapse.util.async_helpers import yieldable_gather_results
 
 if TYPE_CHECKING:
     from synapse.server import HomeServer
@@ -115,6 +116,25 @@ class ReceiptsHandler:
         """Takes a list of receipts, stores them and informs the notifier."""
         min_batch_id: Optional[int] = None
         max_batch_id: Optional[int] = None
+
+        # Beeper: we don't want to send read receipts to large rooms,
+        # so we convert messages to private, that are over RECEIPT_MAX_ROOM_SIZE.
+        room_ids_to_check = {
+            r.room_id for r in receipts if r.receipt_type != ReceiptTypes.READ_PRIVATE
+        }
+
+        room_sizes = await yieldable_gather_results(
+            lambda room_id: self.store.get_number_joined_users_in_room(room_id),
+            (room_id for room_id in room_ids_to_check),
+        )
+        large_rooms = []
+        for room_id, room_size in zip(room_ids_to_check, room_sizes):
+            if room_size > RECEIPTS_MAX_ROOM_SIZE:
+                large_rooms.append(room_id)
+
+        for i, r in enumerate(receipts):
+            if r.room_id in large_rooms:
+                receipts[i] = r.make_private_copy()
 
         for receipt in receipts:
             res = await self.store.insert_receipt(

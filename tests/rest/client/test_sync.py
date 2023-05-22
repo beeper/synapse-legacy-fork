@@ -22,6 +22,7 @@ from twisted.test.proto_helpers import MemoryReactor
 
 import synapse.rest.admin
 from synapse.api.constants import (
+    RECEIPTS_MAX_ROOM_SIZE,
     EduTypes,
     EventContentFields,
     EventTypes,
@@ -380,6 +381,7 @@ class ReadReceiptsTestCase(unittest.HomeserverTestCase):
     servlets = [
         synapse.rest.admin.register_servlets,
         login.register_servlets,
+        read_marker.register_servlets,
         receipts.register_servlets,
         room.register_servlets,
         sync.register_servlets,
@@ -496,6 +498,82 @@ class ReadReceiptsTestCase(unittest.HomeserverTestCase):
         )
         self.assertEqual(channel.code, HTTPStatus.BAD_REQUEST)
         self.assertEqual(channel.json_body["errcode"], "M_NOT_JSON", channel.json_body)
+
+    def test_read_receipt_not_sent_to_large_rooms(self) -> None:
+        # Beeper: we don't send read receipts on rooms with more
+        # users than # RECEIPTS_MAX_ROOM_SIZE
+        for i in range(RECEIPTS_MAX_ROOM_SIZE):
+            user = self.register_user(f"user_{i}", f"secure_password_{i}")
+            tok = self.login(f"user_{i}", f"secure_password_{i}")
+            self.helper.join(room=self.room_id, user=user, tok=tok)
+
+        res = self.helper.send(
+            self.room_id, body="woah, this is a big room!", tok=self.tok
+        )
+
+        for receipt_type in (
+            ReceiptTypes.FULLY_READ,
+            ReceiptTypes.READ_PRIVATE,
+            ReceiptTypes.READ,
+        ):
+            # Send a read receipt
+            channel = self.make_request(
+                "POST",
+                f"/rooms/{self.room_id}/receipt/{receipt_type}/{res['event_id']}",
+                {},
+                access_token=self.tok2,
+            )
+            self.assertEqual(channel.code, 200)
+
+            # Test that we didn't get a read receipt.
+            self.assertIsNone(self._get_read_receipt())
+
+    def test_read_marker_doesnt_send_receipt_to_large_rooms(self) -> None:
+        # Beeper: we don't send read receipts on rooms with over 100 users
+        # add another 100 users to the room
+        for i in range(RECEIPTS_MAX_ROOM_SIZE):
+            user = self.register_user(f"user_{i}", f"secure_password_{i}")
+            tok = self.login(f"user_{i}", f"secure_password_{i}")
+            self.helper.join(room=self.room_id, user=user, tok=tok)
+
+        res = self.helper.send(
+            self.room_id, body="woah, this is a big room!", tok=self.tok
+        )
+
+        # Send a read receipt
+        channel = self.make_request(
+            "POST",
+            f"/rooms/{self.room_id}/read_markers",
+            {
+                ReceiptTypes.FULLY_READ: res["event_id"],
+                ReceiptTypes.READ: res["event_id"],
+            },
+            access_token=self.tok2,
+        )
+
+        self.assertEqual(channel.code, 200, channel.json_body)
+        # Test that we didn't get a read receipt.
+        self.assertIsNone(self._get_read_receipt())
+
+    def test_read_marker_does_send_receipt_to_small_rooms(self) -> None:
+        res = self.helper.send(
+            self.room_id, body="woah, this is room is tiny!", tok=self.tok
+        )
+
+        # Send a read receipt
+        channel = self.make_request(
+            "POST",
+            f"/rooms/{self.room_id}/read_markers",
+            {
+                ReceiptTypes.FULLY_READ: res["event_id"],
+                ReceiptTypes.READ: res["event_id"],
+            },
+            access_token=self.tok2,
+        )
+
+        self.assertEqual(channel.code, 200, channel.json_body)
+        # Test that we didn't get a read receipt.
+        self.assertIsNotNone(self._get_read_receipt())
 
     def _get_read_receipt(self) -> Optional[JsonDict]:
         """Syncs and returns the read receipt."""
@@ -725,6 +803,15 @@ class UnreadMessagesTestCase(unittest.HomeserverTestCase):
         )
         self.assertEqual(channel.code, 200, channel.json_body)
         self._check_unread_count(0)
+
+    def test_large_rooms_dont_alter_unread_count_behaviour(self) -> None:
+        # Beeper: create a lot of users and join them to the room
+        for i in range(RECEIPTS_MAX_ROOM_SIZE):
+            user = self.register_user(f"user_{i}", f"secure_password_{i}")
+            tok = self.login(f"user_{i}", f"secure_password_{i}")
+            self.helper.join(self.room_id, user=user, tok=tok)
+
+        self.test_unread_counts()
 
     # We test for all three receipt types that influence notification counts
     @parameterized.expand(

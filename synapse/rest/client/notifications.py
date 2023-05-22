@@ -61,7 +61,6 @@ class NotificationsServlet(RestServlet):
             user_id,
             [
                 ReceiptTypes.READ,
-                ReceiptTypes.BEEPER_INBOX_DONE,
                 ReceiptTypes.READ_PRIVATE,
             ],
         )

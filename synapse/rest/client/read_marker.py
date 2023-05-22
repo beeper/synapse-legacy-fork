@@ -15,7 +15,7 @@
 import logging
 from typing import TYPE_CHECKING, Tuple
 
-from synapse.api.constants import ReceiptTypes
+from synapse.api.constants import RECEIPTS_MAX_ROOM_SIZE, ReceiptTypes
 from synapse.http.server import HttpServer
 from synapse.http.servlet import RestServlet, parse_json_object_from_request
 from synapse.http.site import SynapseRequest
@@ -39,6 +39,7 @@ class ReadMarkerRestServlet(RestServlet):
         self.config = hs.config
         self.receipts_handler = hs.get_receipts_handler()
         self.read_marker_handler = hs.get_read_marker_handler()
+        self.store = hs.get_datastores().main
         self.presence_handler = hs.get_presence_handler()
 
         self._known_receipt_types = {
@@ -55,6 +56,14 @@ class ReadMarkerRestServlet(RestServlet):
         await self.presence_handler.bump_presence_active_time(requester.user)
 
         body = parse_json_object_from_request(request)
+
+        # Beeper: we don't want to send read receipts to large rooms,
+        # so we convert messages to private, that are over RECEIPT_MAX_ROOM_SIZE.
+        if ReceiptTypes.READ in body:
+            num_users = await self.store.get_number_joined_users_in_room(room_id)
+            if num_users > RECEIPTS_MAX_ROOM_SIZE:
+                body[ReceiptTypes.READ_PRIVATE] = body[ReceiptTypes.READ]
+                del body[ReceiptTypes.READ]
 
         unrecognized_types = set(body.keys()) - self._known_receipt_types
         if unrecognized_types:

@@ -12,6 +12,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from __future__ import annotations
+
 import abc
 import re
 import string
@@ -53,6 +55,7 @@ from twisted.internet.interfaces import (
     IReactorUNIX,
 )
 
+from synapse.api.constants import ReceiptTypes
 from synapse.api.errors import Codes, SynapseError
 from synapse.util.cancellation import cancellable
 from synapse.util.stringutils import parse_and_validate_server_name
@@ -857,6 +860,19 @@ class ReadReceipt:
     event_ids: List[str]
     thread_id: Optional[str]
     data: JsonDict
+
+    # Beeper: we don't want to alter the frozen attr, but
+    # do occasionally need to make a private copy to
+    # avoid traffic to large rooms.
+    def make_private_copy(self) -> ReadReceipt:
+        return ReadReceipt(
+            room_id=self.room_id,
+            user_id=self.user_id,
+            event_ids=self.event_ids,
+            thread_id=self.thread_id,
+            data=self.data,
+            receipt_type=ReceiptTypes.READ_PRIVATE,
+        )
 
 
 @attr.s(slots=True, frozen=True, auto_attribs=True)
