@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import logging
 from typing import TYPE_CHECKING, Tuple
 
@@ -325,6 +326,9 @@ class RoomBeeperInboxStateServlet(RestServlet):
         if "read_markers" in body:
             await self.read_marker_client.handle_read_marker(
                 room_id, body["read_markers"], requester
+            )
+            logger.info(
+                f"SetBeeperReadMarkers read_markers={json.dumps(body['read_markers'])}"
             )
 
         return 200, {}
