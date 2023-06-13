@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING, Optional
 
 from synapse.api.constants import ReceiptTypes
 from synapse.api.errors import SynapseError
+from synapse.types import JsonDict
 from synapse.util.async_helpers import Linearizer
 from synapse.types import JsonDict
 
