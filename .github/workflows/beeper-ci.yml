@@ -40,7 +40,7 @@ jobs:
   test-sytest:
     runs-on: ubuntu-latest
     container:
-      image: matrixdotorg/sytest-synapse:buster
+      image: matrixdotorg/sytest-synapse:focal
       volumes:
         - ${{ github.workspace }}:/src
       env:
