@@ -45,7 +45,7 @@ jobs:
         - ${{ github.workspace }}:/src
       env:
         # Pinned at: https://github.com/matrix-org/sytest/commit/3b0208a1ced1da95d46d88881ebe90f5696b8e27
-        SYTEST_BRANCH: 3b0208a1ced1da95d46d88881ebe90f5696b8e27
+        SYTEST_BRANCH: 50544bb329119be48643396e65bac585c554903f
         TOP: ${{ github.workspace }}
         POSTGRES: 1
         MULTI_POSTGRES: 1
@@ -75,7 +75,7 @@ jobs:
         with:
           repository: matrix-org/complement
           path: complement
-          ref: bcc2bcef25fd31c5ee40c03aba1060e563f09004
+          ref: f032b6cef0e47d4222eb9028459c036ab8257d14
       - name: Install complement dependencies
         run: |-
           sudo apt-get -qq update
