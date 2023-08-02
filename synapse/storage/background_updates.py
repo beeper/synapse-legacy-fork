@@ -633,6 +633,9 @@ class BackgroundUpdater:
             update_name: The name of the update that this code handles.
             update_handler: The function that does the update.
         """
+
+        logger.info("Registering background update: %s", update_name)
+
         self._background_update_handlers[update_name] = _BackgroundUpdateHandler(
             update_handler
         )
@@ -671,6 +674,8 @@ class BackgroundUpdater:
                 The named index will be dropped upon completion of the new index.
         """
 
+        logger.info("Registering background index update: %s", update_name)
+
         async def updater(progress: JsonDict, batch_size: int) -> int:
             await self.create_index_in_background(
                 index_name=index_name,
@@ -708,6 +713,8 @@ class BackgroundUpdater:
             constraint_name: name of constraint to validate
             table: table the constraint is applied to
         """
+
+        logger.info("Registering background validate constraint: %s", update_name)
 
         def runner(conn: Connection) -> None:
             c = conn.cursor()
