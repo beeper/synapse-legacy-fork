@@ -69,7 +69,8 @@ if [[ -n "$SYNAPSE_COMPLEMENT_USE_WORKERS" ]]; then
   fi
   log "Workers requested: $SYNAPSE_WORKER_TYPES"
   # Improve startup times by using a launcher based on fork()
-  export SYNAPSE_USE_EXPERIMENTAL_FORKING_LAUNCHER=1
+  # NOTE: does not work with Beeper changes (external_sharded_cache)
+  # export SYNAPSE_USE_EXPERIMENTAL_FORKING_LAUNCHER=1
 else
   # Empty string here means 'main process only'
   export SYNAPSE_WORKER_TYPES=""

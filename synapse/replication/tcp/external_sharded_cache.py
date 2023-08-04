@@ -26,7 +26,6 @@ from twisted.internet import defer
 
 from synapse.logging import opentracing
 from synapse.logging.context import make_deferred_yieldable, run_in_background
-from synapse.replication.tcp.redis import lazyConnection
 from synapse.util import unwrapFirstError
 
 if TYPE_CHECKING:
@@ -82,6 +81,9 @@ class ExternalShardedCache:
         self._reactor = hs.get_reactor()
 
         if hs.config.redis.redis_enabled and hs.config.redis.cache_shard_hosts:
+            # Only import this if we're going to use it, as it can raise an AttributeError when using the forking launcher
+            from synapse.replication.tcp.redis import lazyConnection
+
             for shard in hs.config.redis.cache_shard_hosts:
                 logger.info(
                     "Connecting to redis (host=%r port=%r) for external cache",
