@@ -206,9 +206,6 @@ class SQLBaseStore(metaclass=ABCMeta):
     def _enable_external_caches(self) -> None:
         external_cache = self.hs.get_external_sharded_cache()
         if external_cache.is_enabled():
-            self._attempt_to_enable_redis_cache(
-                "_get_user_ids_from_membership_event_ids"
-            )
             self._attempt_to_enable_redis_cache("get_users_in_room")
             self._attempt_to_enable_redis_cache("get_current_hosts_in_room")
             self._attempt_to_enable_redis_cache("get_local_users_in_room")
