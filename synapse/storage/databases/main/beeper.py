@@ -62,10 +62,11 @@ class BeeperStore(SQLBaseStore):
                     AND e.room_id = ?
                     AND is_edit.event_id IS NULL
                     AND r.redacts IS NULL
-                    AND (
-                        e.type = 'm.room.message'
-                        OR e.type = 'm.room.encrypted'
-                        OR e.type = 'm.reaction'
+                    AND e.type IN (
+                        'm.room.message',
+                        'm.room.encrypted',
+                        'm.reaction',
+                        'm.sticker'
                     )
                     AND CASE
                         -- Only find non-redacted reactions to our own messages
