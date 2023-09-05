@@ -99,6 +99,7 @@
                   libxml2
                   libxslt
                   sqlite
+                  gcc
 
                   # Native dependencies for unit tests (SyTest also requires OpenSSL).
                   openssl
