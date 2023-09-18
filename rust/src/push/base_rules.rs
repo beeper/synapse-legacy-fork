@@ -187,7 +187,7 @@ pub const BASE_APPEND_OVERRIDE_RULES: &[PushRule] = &[
         priority_class: 5,
         conditions: Cow::Borrowed(&[Condition::Known(
             KnownCondition::ExactEventPropertyContainsType(EventPropertyIsTypeCondition {
-                key: Cow::Borrowed("content.m\\.mentions.user_ids"),
+                key: Cow::Borrowed(r"content.m\.mentions.user_ids"),
                 value_type: Cow::Borrowed(&EventMatchPatternType::UserId),
             }),
         )]),
@@ -208,8 +208,8 @@ pub const BASE_APPEND_OVERRIDE_RULES: &[PushRule] = &[
         priority_class: 5,
         conditions: Cow::Borrowed(&[
             Condition::Known(KnownCondition::EventPropertyIs(EventPropertyIsCondition {
-                key: Cow::Borrowed("content.m\\.mentions.room"),
-                value: Cow::Borrowed(&SimpleJsonValue::Bool(true)),
+                key: Cow::Borrowed(r"content.m\.mentions.room"),
+                value: Cow::Owned(SimpleJsonValue::Bool(true)),
             })),
             Condition::Known(KnownCondition::SenderNotificationPermission {
                 key: Cow::Borrowed("room"),
@@ -265,6 +265,21 @@ pub const BASE_APPEND_OVERRIDE_RULES: &[PushRule] = &[
                 pattern: Cow::Borrowed(""),
             })),
         ]),
+        actions: Cow::Borrowed(&[]),
+        default: true,
+        default_enabled: true,
+    },
+    // We don't want to notify on edits *unless* the edit directly mentions a
+    // user, which is handled above.
+    PushRule {
+        rule_id: Cow::Borrowed("global/override/.org.matrix.msc3958.suppress_edits"),
+        priority_class: 5,
+        conditions: Cow::Borrowed(&[Condition::Known(KnownCondition::EventPropertyIs(
+            EventPropertyIsCondition {
+                key: Cow::Borrowed(r"content.m\.relates_to.rel_type"),
+                value: Cow::Owned(SimpleJsonValue::Str(Cow::Borrowed("m.replace"))),
+            },
+        ))]),
         actions: Cow::Borrowed(&[]),
         default: true,
         default_enabled: true,
