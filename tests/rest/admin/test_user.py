@@ -29,7 +29,16 @@ from synapse.api.constants import ApprovalNoticeMedium, LoginType, UserTypes
 from synapse.api.errors import Codes, HttpResponseException, ResourceLimitError
 from synapse.api.room_versions import RoomVersions
 from synapse.media.filepath import MediaFilePaths
-from synapse.rest.client import devices, login, logout, profile, register, room, sync
+from synapse.rest.client import (
+    devices,
+    login,
+    logout,
+    profile,
+    register,
+    room,
+    sync,
+    user_directory,
+)
 from synapse.server import HomeServer
 from synapse.types import JsonDict, UserID, create_requester
 from synapse.util import Clock
@@ -870,6 +879,44 @@ class UsersListTestCase(unittest.HomeserverTestCase):
         self._order_test([self.admin_user, user1, user2], "creation_ts", "f")
         self._order_test([user2, user1, self.admin_user], "creation_ts", "b")
 
+    def test_filter_admins(self) -> None:
+        """
+        Tests whether the various values of the query parameter `admins` lead to the
+        expected result set.
+        """
+
+        # Register an additional non admin user
+        self.register_user("user", "pass", admin=False)
+
+        # Query all users
+        channel = self.make_request(
+            "GET",
+            f"{self.url}",
+            access_token=self.admin_user_tok,
+        )
+        self.assertEqual(200, channel.code, channel.result)
+        self.assertEqual(2, channel.json_body["total"])
+
+        # Query only admin users
+        channel = self.make_request(
+            "GET",
+            f"{self.url}?admins=true",
+            access_token=self.admin_user_tok,
+        )
+        self.assertEqual(200, channel.code, channel.result)
+        self.assertEqual(1, channel.json_body["total"])
+        self.assertEqual(1, channel.json_body["users"][0]["admin"])
+
+        # Query only non admin users
+        channel = self.make_request(
+            "GET",
+            f"{self.url}?admins=false",
+            access_token=self.admin_user_tok,
+        )
+        self.assertEqual(200, channel.code, channel.result)
+        self.assertEqual(1, channel.json_body["total"])
+        self.assertFalse(channel.json_body["users"][0]["admin"])
+
     @override_config(
         {
             "experimental_features": {
@@ -1477,6 +1524,7 @@ class UserRestTestCase(unittest.HomeserverTestCase):
         login.register_servlets,
         sync.register_servlets,
         register.register_servlets,
+        user_directory.register_servlets,
     ]
 
     def prepare(self, reactor: MemoryReactor, clock: Clock, hs: HomeServer) -> None:
@@ -2463,6 +2511,105 @@ class UserRestTestCase(unittest.HomeserverTestCase):
 
         # This key was removed intentionally. Ensure it is not accidentally re-included.
         self.assertNotIn("password_hash", channel.json_body)
+
+    def test_locked_user(self) -> None:
+        # User can sync
+        channel = self.make_request(
+            "GET",
+            "/_matrix/client/v3/sync",
+            access_token=self.other_user_token,
+        )
+        self.assertEqual(200, channel.code, msg=channel.json_body)
+
+        # Lock user
+        channel = self.make_request(
+            "PUT",
+            self.url_other_user,
+            access_token=self.admin_user_tok,
+            content={"locked": True},
+        )
+
+        # User is not authorized to sync anymore
+        channel = self.make_request(
+            "GET",
+            "/_matrix/client/v3/sync",
+            access_token=self.other_user_token,
+        )
+        self.assertEqual(401, channel.code, msg=channel.json_body)
+        self.assertEqual(Codes.USER_LOCKED, channel.json_body["errcode"])
+        self.assertTrue(channel.json_body["soft_logout"])
+
+    @override_config({"user_directory": {"enabled": True, "search_all_users": True}})
+    def test_locked_user_not_in_user_dir(self) -> None:
+        # User is available in the user dir
+        channel = self.make_request(
+            "POST",
+            "/_matrix/client/v3/user_directory/search",
+            {"search_term": self.other_user},
+            access_token=self.admin_user_tok,
+        )
+        self.assertEqual(200, channel.code, msg=channel.json_body)
+        self.assertIn("results", channel.json_body)
+        self.assertEqual(1, len(channel.json_body["results"]))
+
+        # Lock user
+        channel = self.make_request(
+            "PUT",
+            self.url_other_user,
+            access_token=self.admin_user_tok,
+            content={"locked": True},
+        )
+
+        # User is not available anymore in the user dir
+        channel = self.make_request(
+            "POST",
+            "/_matrix/client/v3/user_directory/search",
+            {"search_term": self.other_user},
+            access_token=self.admin_user_tok,
+        )
+        self.assertEqual(200, channel.code, msg=channel.json_body)
+        self.assertIn("results", channel.json_body)
+        self.assertEqual(0, len(channel.json_body["results"]))
+
+    @override_config(
+        {
+            "user_directory": {
+                "enabled": True,
+                "search_all_users": True,
+                "show_locked_users": True,
+            }
+        }
+    )
+    def test_locked_user_in_user_dir_with_show_locked_users_option(self) -> None:
+        # User is available in the user dir
+        channel = self.make_request(
+            "POST",
+            "/_matrix/client/v3/user_directory/search",
+            {"search_term": self.other_user},
+            access_token=self.admin_user_tok,
+        )
+        self.assertEqual(200, channel.code, msg=channel.json_body)
+        self.assertIn("results", channel.json_body)
+        self.assertEqual(1, len(channel.json_body["results"]))
+
+        # Lock user
+        channel = self.make_request(
+            "PUT",
+            self.url_other_user,
+            access_token=self.admin_user_tok,
+            content={"locked": True},
+        )
+
+        # User is still available in the user dir
+        channel = self.make_request(
+            "POST",
+            "/_matrix/client/v3/user_directory/search",
+            {"search_term": self.other_user},
+            access_token=self.admin_user_tok,
+        )
+        self.assertEqual(200, channel.code, msg=channel.json_body)
+        self.assertIn("results", channel.json_body)
+        self.assertEqual(1, len(channel.json_body["results"]))
 
     @override_config({"user_directory": {"enabled": True, "search_all_users": True}})
     def test_change_name_deactivate_user_user_directory(self) -> None:

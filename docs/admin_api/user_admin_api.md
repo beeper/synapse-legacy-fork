@@ -146,6 +146,7 @@ Body parameters:
 - `admin` - **bool**, optional, defaults to `false`. Whether the user is a homeserver administrator,
   granting them access to the Admin API, among other things.
 - `deactivated` - **bool**, optional. If unspecified, deactivation state will be left unchanged.
+- `locked` - **bool**, optional. If unspecified, locked state will be left unchanged.
 
   Note: the `password` field must also be set if both of the following are true:
   - `deactivated` is set to `false` and the user was previously deactivated (you are reactivating this user)
@@ -218,6 +219,8 @@ The following parameters should be set in the URL:
   **or** displaynames that contain this value.
 - `guests` - string representing a bool - Is optional and if `false` will **exclude** guest users.
   Defaults to `true` to include guest users.
+- `admins` - Optional flag to filter admins. If `true`, only admins are queried. If `false`, admins are excluded from 
+  the query. When the flag is absent (the default), **both** admins and non-admins are included in the search results.
 - `deactivated` - string representing a bool - Is optional and if `true` will **include** deactivated users.
   Defaults to `false` to exclude deactivated users.
 - `limit` - string representing a positive integer - Is optional but is used for pagination,

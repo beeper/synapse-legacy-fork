@@ -71,6 +71,7 @@ from .state import StateStore
 from .stats import StatsStore
 from .stream import StreamWorkerStore
 from .tags import TagsStore
+from .task_scheduler import TaskSchedulerWorkerStore
 from .transactions import TransactionWorkerStore
 from .ui_auth import UIAuthStore
 from .user_directory import UserDirectoryStore
@@ -128,6 +129,7 @@ class DataStore(
     CacheInvalidationWorkerStore,
     LockStore,
     SessionStore,
+    TaskSchedulerWorkerStore,
     BeeperStore,
 ):
     def __init__(
@@ -170,6 +172,7 @@ class DataStore(
         name: Optional[str] = None,
         guests: bool = True,
         deactivated: bool = False,
+        admins: Optional[bool] = None,
         order_by: str = UserSortOrder.NAME.value,
         direction: Direction = Direction.FORWARDS,
         approved: bool = True,
@@ -186,6 +189,9 @@ class DataStore(
             name: search for local part of user_id or display name
             guests: whether to in include guest users
             deactivated: whether to include deactivated users
+            admins: Optional flag to filter admins. If true, only admins are queried.
+                    if false, admins are excluded from the query. When it is
+                    none (the default), both admins and none-admins are queried.
             order_by: the sort order of the returned list
             direction: sort ascending or descending
             approved: whether to include approved users
@@ -221,6 +227,12 @@ class DataStore(
 
             if not deactivated:
                 filters.append("deactivated = 0")
+
+            if admins is not None:
+                if admins:
+                    filters.append("admin = 1")
+                else:
+                    filters.append("admin = 0")
 
             if not approved:
                 # We ignore NULL values for the approved flag because these should only
