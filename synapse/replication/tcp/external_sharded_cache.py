@@ -18,7 +18,6 @@ import pickle
 from collections import defaultdict
 from typing import TYPE_CHECKING, Any, Callable, Coroutine, Dict, List, Optional, Union
 
-import jump
 from prometheus_client import Counter, Histogram
 from txredisapi import ConnectionError, ConnectionHandler, RedisError
 
@@ -31,6 +30,13 @@ from synapse.util import unwrapFirstError
 
 if TYPE_CHECKING:
     from synapse.server import HomeServer
+
+try:
+    import jump
+except ImportError:
+    has_jump = False
+else:
+    has_jump = True
 
 set_counter = Counter(
     "synapse_external_sharded_cache_set",
@@ -82,6 +88,10 @@ class ExternalShardedCache:
         self._reactor = hs.get_reactor()
 
         if hs.config.redis.redis_enabled and hs.config.redis.cache_shard_hosts:
+            if not has_jump:
+                logger.error("Cannot start sharded cache, jump module not found!")
+                return
+
             for shard in hs.config.redis.cache_shard_hosts:
                 logger.info(
                     "Connecting to redis (host=%r port=%r) for external cache",
