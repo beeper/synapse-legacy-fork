@@ -125,6 +125,7 @@ ENV CARGO_NET_GIT_FETCH_WITH_CLI=$CARGO_NET_GIT_FETCH_WITH_CLI
 
 # Beeper: install shared secret authenticator
 RUN pip install --prefix="/install" --no-deps --no-warn-script-location \
+   jump-consistent-hash \
    'git+https://github.com/devture/matrix-synapse-shared-secret-auth@e178353ec87c56e0169dd04466d4769da5ed9c46#egg=shared_secret_authenticator'
 
 # To speed up rebuilds, install all of the dependencies before we copy over
