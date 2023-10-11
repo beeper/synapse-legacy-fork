@@ -156,7 +156,7 @@ class EventValidator:
         max_lifetime = event.content.get("max_lifetime")
 
         if min_lifetime is not None:
-            if type(min_lifetime) is not int:
+            if type(min_lifetime) is not int:  # noqa: E721
                 raise SynapseError(
                     code=400,
                     msg="'min_lifetime' must be an integer",
@@ -164,7 +164,7 @@ class EventValidator:
                 )
 
         if max_lifetime is not None:
-            if type(max_lifetime) is not int:
+            if type(max_lifetime) is not int:  # noqa: E721
                 raise SynapseError(
                     code=400,
                     msg="'max_lifetime' must be an integer",

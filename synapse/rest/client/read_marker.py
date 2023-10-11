@@ -64,7 +64,9 @@ class ReadMarkerRestServlet(RestServlet):
     async def handle_read_marker(
         self, room_id: str, body: dict, requester: Requester
     ) -> Tuple[int, JsonDict]:
-        await self.presence_handler.bump_presence_active_time(requester.user)
+        await self.presence_handler.bump_presence_active_time(
+            requester.user, requester.device_id
+        )
 
         unrecognized_types = set(body.keys()) - self._known_receipt_types
         if unrecognized_types:
