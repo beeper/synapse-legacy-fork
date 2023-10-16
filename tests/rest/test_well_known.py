@@ -131,6 +131,7 @@ class WellKnownTests(unittest.HomeserverTestCase):
             channel.json_body,
             {
                 "m.homeserver": {"base_url": "https://homeserver/"},
+                "m.identity_server": {"base_url": ""},
                 "org.matrix.msc2965.authentication": {
                     "issuer": "https://issuer",
                     "account": "https://my-account.issuer",
