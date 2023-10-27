@@ -19,7 +19,7 @@
 #
 #
 import json
-from typing import List
+from typing import List, Optional
 
 from parameterized import parameterized
 
