@@ -78,6 +78,7 @@ from synapse.storage.databases.main.monthly_active_users import (
 )
 from synapse.storage.databases.main.presence import PresenceStore
 from synapse.storage.databases.main.profile import ProfileWorkerStore
+from synapse.storage.databases.main.purge_events import PurgeEventsStore
 from synapse.storage.databases.main.push_rule import PushRulesWorkerStore
 from synapse.storage.databases.main.pusher import PusherWorkerStore
 from synapse.storage.databases.main.receipts import ReceiptsWorkerStore
@@ -135,6 +136,7 @@ class GenericWorkerStore(
     RelationsWorkerStore,
     EventFederationWorkerStore,
     EventPushActionsWorkerStore,
+    PurgeEventsStore,
     StateGroupWorkerStore,
     SignatureWorkerStore,
     UserErasureWorkerStore,

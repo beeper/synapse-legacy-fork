@@ -200,9 +200,7 @@ class _ServiceQueuer:
         if service.id in self.requests_in_flight:
             return
 
-        run_as_background_process(
-            "as-sender-%s" % (service.id,), self._send_request, service
-        )
+        run_as_background_process("as-sender", self._send_request, service)
 
     async def _send_request(self, service: ApplicationService) -> None:
         # sanity-check: we shouldn't get here if this service already has a sender
@@ -449,7 +447,6 @@ class _TransactionController:
         return state == ApplicationServiceState.UP or state is None
 
 
-# NOTE: Beeper changes from upstream to the backoff system
 class _Recoverer:
     """Manages retries and backoff for a DOWN appservice.
 
@@ -476,21 +473,19 @@ class _Recoverer:
         self.as_api = as_api
         self.service = service
         self.callback = callback
-        self.backoff_counter = 0.0
+        self.backoff_counter = 1
 
     def recover(self) -> None:
-        def _retry() -> None:
-            run_as_background_process(
-                "as-recoverer-%s" % (self.service.id,), self.retry
-            )
-
-        delay = self.backoff_counter
+        delay = 2**self.backoff_counter
         logger.info("Scheduling retries on %s in %fs", self.service.id, delay)
-        self.clock.call_later(delay, _retry)
+        self.clock.call_later(
+            delay, run_as_background_process, "as-recoverer", self.retry
+        )
 
     def _backoff(self) -> None:
-        if self.backoff_counter < 5:
-            self.backoff_counter += 0.5
+        # cap the backoff to be around 8.5min => (2^9) = 512 secs
+        if self.backoff_counter < 9:
+            self.backoff_counter += 1
         self.recover()
 
     async def retry(self) -> None:
@@ -513,7 +508,7 @@ class _Recoverer:
                 await txn.complete(self.store)
 
                 # reset the backoff counter and then process the next transaction
-                self.backoff_counter = 0
+                self.backoff_counter = 1
 
         except Exception:
             logger.exception("Unexpected error running retries")

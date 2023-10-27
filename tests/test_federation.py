@@ -52,9 +52,15 @@ class MessageAcceptTests(unittest.HomeserverTestCase):
         self.store = self.hs.get_datastores().main
 
         # Figure out what the most recent event is
-        most_recent = self.get_success(
-            self.hs.get_datastores().main.get_latest_event_ids_in_room(self.room_id)
-        )[0]
+        most_recent = next(
+            iter(
+                self.get_success(
+                    self.hs.get_datastores().main.get_latest_event_ids_in_room(
+                        self.room_id
+                    )
+                )
+            )
+        )
 
         join_event = make_event_from_dict(
             {
@@ -101,8 +107,8 @@ class MessageAcceptTests(unittest.HomeserverTestCase):
 
         # Make sure we actually joined the room
         self.assertEqual(
-            self.get_success(self.store.get_latest_event_ids_in_room(self.room_id))[0],
-            "$join:test.serv",
+            self.get_success(self.store.get_latest_event_ids_in_room(self.room_id)),
+            {"$join:test.serv"},
         )
 
     def test_cant_hide_direct_ancestors(self) -> None:
@@ -128,9 +134,11 @@ class MessageAcceptTests(unittest.HomeserverTestCase):
         self.http_client.post_json = post_json
 
         # Figure out what the most recent event is
-        most_recent = self.get_success(
-            self.store.get_latest_event_ids_in_room(self.room_id)
-        )[0]
+        most_recent = next(
+            iter(
+                self.get_success(self.store.get_latest_event_ids_in_room(self.room_id))
+            )
+        )
 
         # Now lie about an event
         lying_event = make_event_from_dict(
@@ -166,7 +174,7 @@ class MessageAcceptTests(unittest.HomeserverTestCase):
 
         # Make sure the invalid event isn't there
         extrem = self.get_success(self.store.get_latest_event_ids_in_room(self.room_id))
-        self.assertEqual(extrem[0], "$join:test.serv")
+        self.assertEqual(extrem, {"$join:test.serv"})
 
     def test_retry_device_list_resync(self) -> None:
         """Tests that device lists are marked as stale if they couldn't be synced, and

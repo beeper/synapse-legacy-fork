@@ -821,9 +821,7 @@ class ReceiptsWorkerStore(StreamWorkerStore, SQLBaseStore):
             stream_id,
         )
 
-        await self.db_pool.runInteraction(
-            "insert_graph_receipt",
-            self._insert_graph_receipt_txn,
+        await self._insert_graph_receipt(
             room_id,
             receipt_type,
             user_id,
@@ -836,9 +834,8 @@ class ReceiptsWorkerStore(StreamWorkerStore, SQLBaseStore):
 
         return stream_id, max_persisted_id
 
-    def _insert_graph_receipt_txn(
+    async def _insert_graph_receipt(
         self,
-        txn: LoggingTransaction,
         room_id: str,
         receipt_type: str,
         user_id: str,
@@ -847,13 +844,6 @@ class ReceiptsWorkerStore(StreamWorkerStore, SQLBaseStore):
         data: JsonDict,
     ) -> None:
         assert self._can_write_to_receipts
-
-        txn.call_after(
-            self._get_receipts_for_user_with_orderings.invalidate,
-            (user_id, receipt_type),
-        )
-        # FIXME: This shouldn't invalidate the whole cache
-        txn.call_after(self._get_linearized_receipts_for_room.invalidate, (room_id,))
 
         keyvalues = {
             "room_id": room_id,
@@ -866,8 +856,8 @@ class ReceiptsWorkerStore(StreamWorkerStore, SQLBaseStore):
         else:
             keyvalues["thread_id"] = thread_id
 
-        self.db_pool.simple_upsert_txn(
-            txn,
+        await self.db_pool.simple_upsert(
+            desc="insert_graph_receipt",
             table="receipts_graph",
             keyvalues=keyvalues,
             values={
@@ -876,6 +866,11 @@ class ReceiptsWorkerStore(StreamWorkerStore, SQLBaseStore):
             },
             where_clause=where_clause,
         )
+
+        self._get_receipts_for_user_with_orderings.invalidate((user_id, receipt_type))
+
+        # FIXME: This shouldn't invalidate the whole cache
+        self._get_linearized_receipts_for_room.invalidate((room_id,))
 
 
 class ReceiptsBackgroundUpdateStore(SQLBaseStore):
@@ -965,11 +960,7 @@ class ReceiptsBackgroundUpdateStore(SQLBaseStore):
         receipts."""
 
         def _remote_duplicate_receipts_txn(txn: LoggingTransaction) -> None:
-            if isinstance(self.database_engine, PostgresEngine):
-                ROW_ID_NAME = "ctid"
-            else:
-                ROW_ID_NAME = "rowid"
-
+            ROW_ID_NAME = self.database_engine.row_id_name
             # Identify any duplicate receipts arising from
             # https://github.com/matrix-org/synapse/issues/14406.
             # The following query takes less than a minute on matrix.org.
