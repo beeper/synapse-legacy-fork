@@ -46,7 +46,7 @@ from synapse.storage.databases.main.roommember import RoomMemberWorkerStore
 from synapse.storage.engines._base import IsolationLevel
 from synapse.storage.types import Cursor
 from synapse.storage.util.sequence import build_sequence_generator
-from synapse.types import DeviceListUpdates, JsonDict
+from synapse.types import DeviceListUpdates, JsonMapping
 from synapse.util import json_encoder
 from synapse.util.caches.descriptors import _CacheContext, cached
 
@@ -269,8 +269,8 @@ class ApplicationServiceTransactionWorkerStore(
         self,
         service: ApplicationService,
         events: Sequence[EventBase],
-        ephemeral: List[JsonDict],
-        to_device_messages: List[JsonDict],
+        ephemeral: List[JsonMapping],
+        to_device_messages: List[JsonMapping],
         one_time_keys_count: TransactionOneTimeKeysCount,
         unused_fallback_keys: TransactionUnusedFallbackKeys,
         device_list_summary: DeviceListUpdates,

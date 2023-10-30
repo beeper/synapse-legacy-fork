@@ -195,7 +195,7 @@ class RoomMemberWorkerStore(EventsWorkerStore, CacheInvalidationWorkerStore):
     )
     async def get_subset_users_in_room_with_profiles(
         self, room_id: str, user_ids: Collection[str]
-    ) -> Dict[str, ProfileInfo]:
+    ) -> Mapping[str, ProfileInfo]:
         """Get a mapping from user ID to profile information for a list of users
         in a given room.
 
@@ -279,7 +279,7 @@ class RoomMemberWorkerStore(EventsWorkerStore, CacheInvalidationWorkerStore):
             _get_users_in_room_with_profiles,
         )
 
-    @cached(max_entries=100000)
+    @cached(max_entries=100000)  # type: ignore[synapse-@cached-mutable]
     async def get_room_summary(self, room_id: str) -> Mapping[str, MemberSummary]:
         """Get the details of a room roughly suitable for use by the room
         summary extension to /sync. Useful when lazy loading room members.
@@ -699,7 +699,7 @@ class RoomMemberWorkerStore(EventsWorkerStore, CacheInvalidationWorkerStore):
     )
     async def _get_rooms_for_users(
         self, user_ids: Collection[str]
-    ) -> Dict[str, FrozenSet[str]]:
+    ) -> Mapping[str, FrozenSet[str]]:
         """A batched version of `get_rooms_for_user`.
 
         Returns:
@@ -904,7 +904,7 @@ class RoomMemberWorkerStore(EventsWorkerStore, CacheInvalidationWorkerStore):
     )
     async def _get_user_ids_from_membership_event_ids(
         self, event_ids: Iterable[str]
-    ) -> Dict[str, Optional[str]]:
+    ) -> Mapping[str, Optional[str]]:
         """For given set of member event_ids check if they point to a join
         event.
 
@@ -1007,7 +1007,7 @@ class RoomMemberWorkerStore(EventsWorkerStore, CacheInvalidationWorkerStore):
         )
 
     @cached(iterable=True, max_entries=10000)
-    async def get_current_hosts_in_room_ordered(self, room_id: str) -> List[str]:
+    async def get_current_hosts_in_room_ordered(self, room_id: str) -> Tuple[str, ...]:
         """
         Get current hosts in room based on current state.
 
@@ -1036,12 +1036,14 @@ class RoomMemberWorkerStore(EventsWorkerStore, CacheInvalidationWorkerStore):
             # `get_users_in_room` rather than funky SQL.
 
             domains = await self.get_current_hosts_in_room(room_id)
-            return list(domains)
+            return tuple(domains)
 
         # For PostgreSQL we can use a regex to pull out the domains from the
         # joined users in `current_state_events` via regex.
 
-        def get_current_hosts_in_room_ordered_txn(txn: LoggingTransaction) -> List[str]:
+        def get_current_hosts_in_room_ordered_txn(
+            txn: LoggingTransaction,
+        ) -> Tuple[str, ...]:
             # Returns a list of servers currently joined in the room sorted by
             # longest in the room first (aka. with the lowest depth). The
             # heuristic of sorting by servers who have been in the room the
@@ -1066,7 +1068,7 @@ class RoomMemberWorkerStore(EventsWorkerStore, CacheInvalidationWorkerStore):
             """
             txn.execute(sql, (room_id,))
             # `server_domain` will be `NULL` for malformed MXIDs with no colons.
-            return [d for d, in txn if d is not None]
+            return tuple(d for d, in txn if d is not None)
 
         return await self.db_pool.runInteraction(
             "get_current_hosts_in_room_ordered", get_current_hosts_in_room_ordered_txn
@@ -1092,7 +1094,8 @@ class RoomMemberWorkerStore(EventsWorkerStore, CacheInvalidationWorkerStore):
         )
         return {row["event_id"]: row["membership"] for row in rows}
 
-    @cached(max_entries=10000)
+    # TODO This returns a mutable object, which is generally confusing when using a cache.
+    @cached(max_entries=10000)  # type: ignore[synapse-@cached-mutable]
     def _get_joined_hosts_cache(self, room_id: str) -> "_JoinedHostsCache":
         return _JoinedHostsCache()
 
@@ -1214,7 +1217,7 @@ class RoomMemberWorkerStore(EventsWorkerStore, CacheInvalidationWorkerStore):
     )
     async def get_membership_from_event_ids(
         self, member_event_ids: Iterable[str]
-    ) -> Dict[str, Optional[EventIdMembership]]:
+    ) -> Mapping[str, Optional[EventIdMembership]]:
         """Get user_id and membership of a set of event IDs.
 
         Returns:

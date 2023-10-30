@@ -63,6 +63,19 @@ pub const BASE_PREPEND_OVERRIDE_RULES: &[PushRule] = &[PushRule {
 }];
 
 pub const BASE_APPEND_OVERRIDE_RULES: &[PushRule] = &[
+    PushRule {
+        rule_id: Cow::Borrowed("global/override/.org.matrix.msc4028.encrypted_event"),
+        priority_class: 5,
+        conditions: Cow::Borrowed(&[Condition::Known(KnownCondition::EventMatch(
+            EventMatchCondition {
+                key: Cow::Borrowed("type"),
+                pattern: Cow::Borrowed("m.room.encrypted"),
+            },
+        ))]),
+        actions: Cow::Borrowed(&[Action::Notify]),
+        default: true,
+        default_enabled: false,
+    },
     // Disable notifications for auto-accepted room invites
     // NOTE: this rule must be a higher prio than .m.rule.invite_for_me because
     // that will also match the same events.

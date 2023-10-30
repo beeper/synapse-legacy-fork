@@ -1026,11 +1026,8 @@ which are older than the room's maximum retention period. Synapse will also
 filter events received over federation so that events that should have been
 purged are ignored and not stored again.
 
-The message retention policies feature is disabled by default. Please be advised
-that enabling this feature carries some risk. There are known bugs with the implementation
-which can cause database corruption. Setting retention to delete older history
-is less risky than deleting newer history but in general caution is advised when enabling this
-experimental feature. You can read more about this feature [here](../../message_retention_policies.md).
+The message retention policies feature is disabled by default. You can read more
+about this feature [here](../../message_retention_policies.md).
 
 This setting has the following sub-options:
 * `default_policy`: Default retention policy. If set, Synapse will apply it to rooms that lack the
@@ -1192,6 +1189,11 @@ N.B. we recommend also firewalling your federation listener to limit
 inbound federation traffic as early as possible, rather than relying
 purely on this application-layer restriction.  If not specified, the
 default is to whitelist everything.
+
+Note: this does not stop a server from joining rooms that servers not on the
+whitelist are in. As such, this option is really only useful to establish a
+"private federation", where a group of servers all whitelist each other and have
+the same whitelist.
 
 Example configuration:
 ```yaml
