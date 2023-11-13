@@ -120,6 +120,7 @@ class ReplicationSendEventsRestServlet(ReplicationEndpoint):
         with Measure(self.clock, "repl_send_events_parse"):
             events_and_context = []
             events = payload["events"]
+            rooms = set()
 
             for event_payload in events:
                 event_dict = event_payload["event"]
@@ -147,11 +148,13 @@ class ReplicationSendEventsRestServlet(ReplicationEndpoint):
                 ]
                 dont_notify = event_payload["dont_notify"]
 
-                logger.info(
-                    "Got batch of events to send, last ID of batch is: %s, sending into room: %s",
-                    event.event_id,
-                    event.room_id,
-                )
+                # all the rooms *should* be the same, but we'll log separately to be
+                # sure.
+                rooms.add(event.room_id)
+
+            logger.info(
+                "Got batch of %i events to persist to rooms %s", len(events), rooms
+            )
 
             last_event = (
                 await self.event_creation_handler.persist_and_notify_client_events(
