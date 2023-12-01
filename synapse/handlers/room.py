@@ -1994,7 +1994,11 @@ class RoomShutdownHandler:
 
             # BEEPER HACK: Remove after we've cleaned up synapse bridges
             if user_id.startswith("@_"):
-                logger.info("Skipping kicking %r from %r because it's a appservice user...", user_id, room_id)
+                logger.info(
+                    "Skipping kicking %r from %r because it's a appservice user...",
+                    user_id,
+                    room_id,
+                )
                 continue
 
             logger.info("Kicking %r from %r...", user_id, room_id)
