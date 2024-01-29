@@ -1959,9 +1959,10 @@ class RoomShutdownHandler:
             logger.info("Shutting down room %r", room_id)
 
         shutdown_start = time.time()
-        users = await self.store.get_users_in_room(room_id)
-        for user_id in users:
-            if not self.hs.is_mine_id(user_id):
+        users = await self.store.get_local_users_related_to_room(room_id)
+        for user_id, membership in users:
+            # If the user is not in the room (or is banned), nothing to do.
+            if membership not in (Membership.JOIN, Membership.INVITE, Membership.KNOCK):
                 continue
 
             # BEEPER HACK: Remove after we've cleaned up synapse bridges
