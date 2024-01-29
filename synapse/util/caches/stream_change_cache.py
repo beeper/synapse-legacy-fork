@@ -106,6 +106,16 @@ class StreamChangeCache:
             for entity, stream_pos in prefilled_cache.items():
                 self.entity_has_changed(entity, stream_pos)
 
+    def _check_current_position(self, current_pos: Optional[int] = None) -> None:
+        if current_pos and current_pos > self.max_stream_pos:
+            logger.warning(
+                "Checking entity in %s stream cache cache with current position %s "
+                "ahead of the max stream cache position %s",
+                self.name,
+                current_pos,
+                self.max_stream_pos,
+            )
+
     def set_cache_factor(self, factor: float) -> bool:
         """
         Set the cache factor for this individual cache.
@@ -123,7 +133,9 @@ class StreamChangeCache:
             return True
         return False
 
-    def has_entity_changed(self, entity: EntityType, stream_pos: int) -> bool:
+    def has_entity_changed(
+        self, entity: EntityType, stream_pos: int, current_pos: Optional[int] = None
+    ) -> bool:
         """
         Returns True if the entity may have been updated after stream_pos.
 
@@ -143,6 +155,7 @@ class StreamChangeCache:
                 * The given stream position is at or later than the latest change
                   for the entity.
         """
+        self._check_current_position(current_pos)
         assert isinstance(stream_pos, int)
 
         # _cache is not valid at or before the earliest known stream position, so
@@ -168,7 +181,10 @@ class StreamChangeCache:
         return False
 
     def get_entities_changed(
-        self, entities: Collection[EntityType], stream_pos: int
+        self,
+        entities: Collection[EntityType],
+        stream_pos: int,
+        current_pos: Optional[int] = None,
     ) -> Union[Set[EntityType], FrozenSet[EntityType]]:
         """
         Returns the subset of the given entities that have had changes after the given position.
@@ -207,7 +223,9 @@ class StreamChangeCache:
 
         return result
 
-    def has_any_entity_changed(self, stream_pos: int) -> bool:
+    def has_any_entity_changed(
+        self, stream_pos: int, current_pos: Optional[int] = None
+    ) -> bool:
         """
         Returns true if any entity has changed after the given stream position.
 
@@ -221,6 +239,7 @@ class StreamChangeCache:
 
             False otherwise.
         """
+        self._check_current_position(current_pos)
         assert isinstance(stream_pos, int)
 
         # _cache is not valid at or before the earliest known stream position, so
