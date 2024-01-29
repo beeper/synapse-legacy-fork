@@ -20,13 +20,13 @@
 #
 
 import logging
-from typing import TYPE_CHECKING, Tuple
+from typing import TYPE_CHECKING, Tuple, Union
 
 from synapse.api.constants import ReceiptTypes
 from synapse.http.server import HttpServer
 from synapse.http.servlet import RestServlet, parse_json_object_from_request
 from synapse.http.site import SynapseRequest
-from synapse.types import JsonDict
+from synapse.types import JsonDict, Requester
 
 from ._base import client_patterns
 
@@ -55,8 +55,13 @@ class ReadMarkerRestServlet(RestServlet):
         }
 
     async def on_POST(
-        self, request: SynapseRequest, room_id: str
+        self,
+        request: SynapseRequest,
+        room_id: str,
+        body: Union[dict, None] = None,
+        requester: Union[None, Requester] = None,
     ) -> Tuple[int, JsonDict]:
+        body = parse_json_object_from_request(request)
         requester = await self.auth.get_user_by_req(request)
 
         await self.presence_handler.bump_presence_active_time(
@@ -64,6 +69,14 @@ class ReadMarkerRestServlet(RestServlet):
         )
 
         body = parse_json_object_from_request(request)
+
+        return await self.handle_read_marker(room_id, body, requester)
+
+    # Beeper: The endpoint and underlying method are separated here so `inbox_state`
+    # can use the same function.
+    async def handle_read_marker(
+        self, room_id: str, body: dict, requester: Requester
+    ) -> Tuple[int, JsonDict]:
         read_extra = body.get("com.beeper.read.extra", None)
         read_marker_extra = body.get("com.beeper.fully_read.extra", None)
 
