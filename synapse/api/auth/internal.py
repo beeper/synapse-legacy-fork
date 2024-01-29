@@ -115,7 +115,10 @@ class InternalAuth(BaseAuth):
         Once get_user_by_req has set up the opentracing span, this does the actual work.
         """
         try:
-            ip_addr = request.get_client_ip_if_available()
+            # Beep: don't care about client IPs in synapse since hungry proxies (so IP is hungry)
+            ip_addr = ""
+            # ip_addr = request.get_client_ip_if_available()
+
             user_agent = get_request_user_agent(request)
 
             access_token = self.get_access_token_from_request(request)
