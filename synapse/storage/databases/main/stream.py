@@ -604,7 +604,7 @@ class StreamWorkerStore(EventsWorkerStore, SQLBaseStore):
                 - stream ordering key for the start of the chunk of events returned.
         """
         room_ids = self._events_stream_cache.get_entities_changed(
-            room_ids, from_key.stream
+            room_ids, from_key.stream, to_key.stream
         )
 
         if not room_ids:
@@ -675,7 +675,7 @@ class StreamWorkerStore(EventsWorkerStore, SQLBaseStore):
             return [], from_key
 
         has_changed = self._events_stream_cache.has_entity_changed(
-            room_id, from_key.stream
+            room_id, from_key.stream, to_key.stream
         )
 
         if not has_changed:

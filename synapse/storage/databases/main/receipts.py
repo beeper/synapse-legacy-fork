@@ -324,7 +324,7 @@ class ReceiptsWorkerStore(StreamWorkerStore, SQLBaseStore):
             # Only ask the database about rooms where there have been new
             # receipts added since `from_key`
             room_ids = self._receipts_stream_cache.get_entities_changed(
-                room_ids, from_key.stream
+                room_ids, from_key.stream, to_key.stream
             )
 
         results = await self._get_linearized_receipts_for_rooms(
@@ -354,7 +354,7 @@ class ReceiptsWorkerStore(StreamWorkerStore, SQLBaseStore):
             # Check the cache first to see if any new receipts have been added
             # since`from_key`. If not we can no-op.
             if not self._receipts_stream_cache.has_entity_changed(
-                room_id, from_key.stream
+                room_id, from_key.stream, to_key.stream
             ):
                 return []
 

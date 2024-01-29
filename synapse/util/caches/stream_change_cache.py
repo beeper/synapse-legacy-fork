@@ -203,7 +203,7 @@ class StreamChangeCache:
             This will be all entities if the given stream position is at or earlier
             than the earliest known stream position.
         """
-        cache_result = self.get_all_entities_changed(stream_pos)
+        cache_result = self.get_all_entities_changed(stream_pos, current_pos)
         if cache_result.hit:
             # We now do an intersection, trying to do so in the most efficient
             # way possible (some of these sets are *large*). First check in the
@@ -256,7 +256,9 @@ class StreamChangeCache:
         self.metrics.inc_hits()
         return stream_pos < self._cache.peekitem()[0]
 
-    def get_all_entities_changed(self, stream_pos: int) -> AllEntitiesChangedResult:
+    def get_all_entities_changed(
+        self, stream_pos: int, current_pos: Optional[int] = None
+    ) -> AllEntitiesChangedResult:
         """
         Returns all entities that have had changes after the given position.
 
@@ -272,6 +274,7 @@ class StreamChangeCache:
             A class indicating if we have the requested data cached, and if so
             includes the entities in the order they were changed.
         """
+        self._check_current_position(current_pos)
         assert isinstance(stream_pos, int)
 
         # _cache is not valid at or before the earliest known stream position, so

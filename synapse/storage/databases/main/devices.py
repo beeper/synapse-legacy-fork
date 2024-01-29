@@ -343,7 +343,7 @@ class DeviceWorkerStore(RoomMemberWorkerStore, EndToEndKeyWorkerStore):
         now_stream_id = self.get_device_stream_token()
 
         has_changed = self._device_list_federation_stream_cache.has_entity_changed(
-            destination, int(from_stream_id)
+            destination, int(from_stream_id), now_stream_id
         )
         if not has_changed:
             # debugging for https://github.com/matrix-org/synapse/issues/14251
@@ -914,7 +914,7 @@ class DeviceWorkerStore(RoomMemberWorkerStore, EndToEndKeyWorkerStore):
         # Get set of users who *may* have changed. Users not in the returned
         # list have definitely not changed.
         user_ids_to_check = self._device_list_stream_cache.get_entities_changed(
-            user_ids, from_key
+            user_ids, from_key, to_key
         )
 
         # If an empty set was returned, there's nothing to do.
