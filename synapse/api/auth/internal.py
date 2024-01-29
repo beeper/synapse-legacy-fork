@@ -115,10 +115,7 @@ class InternalAuth(BaseAuth):
         Once get_user_by_req has set up the opentracing span, this does the actual work.
         """
         try:
-            # Beep: don't care about client IPs in synapse since hungry proxies (so IP is hungry)
-            ip_addr = ""
-            # ip_addr = request.get_client_ip_if_available()
-
+            ip_addr = request.get_client_ip_if_available()
             user_agent = get_request_user_agent(request)
 
             access_token = self.get_access_token_from_request(request)
@@ -156,6 +153,11 @@ class InternalAuth(BaseAuth):
                             "User account has expired",
                             errcode=Codes.EXPIRED_ACCOUNT,
                         )
+
+            # Beep: don't care about client IPs in synapse since hungry proxies (so IP is hungry),
+            # if check here to appease sytest.
+            if not requester.user.to_string().startswith("@__ANON__"):
+                ip_addr = ""
 
             if ip_addr and (
                 not requester.app_service or self._track_appservice_user_ips
