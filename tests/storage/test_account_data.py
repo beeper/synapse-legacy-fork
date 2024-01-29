@@ -93,6 +93,16 @@ class IgnoredUsersTestCase(unittest.HomeserverTestCase):
         # Check the removed user.
         self.assert_ignorers("@another:remote", {self.user})
 
+    def test_ignoring_bot_users(self) -> None:
+        self._update_ignore_list("@other:test", "@another:remote")
+        self.assert_ignored(self.user, {"@other:test", "@another:remote"})
+
+        self._update_ignore_list("@iamnotabot:beeper.com")
+        self.assert_ignored(self.user, {"@iamnotabot:beeper.com"})
+
+        self._update_ignore_list("@whatsappbot:beeper.local")
+        self.assert_ignored(self.user, set())
+
     def test_caching(self) -> None:
         """Ensure that caching works properly between different users."""
         # The first user ignores a user.
