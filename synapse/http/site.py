@@ -35,7 +35,7 @@ from twisted.web.resource import IResource, Resource
 from twisted.web.server import Request
 
 from synapse.config.server import ListenerConfig
-from synapse.http import get_request_user_agent, redact_uri
+from synapse.http import get_request_beeper_bridge, get_request_user_agent, redact_uri
 from synapse.http.proxy import ProxySite
 from synapse.http.request_metrics import RequestMetrics, requests_counter
 from synapse.logging.context import (
@@ -278,6 +278,7 @@ class SynapseRequest(Request):
                 url=self.get_redacted_uri(),
                 protocol=self.clientproto.decode("ascii", errors="replace"),
                 user_agent=get_request_user_agent(self),
+                beeper_bridge=get_request_beeper_bridge(self),
             ),
         )
 
