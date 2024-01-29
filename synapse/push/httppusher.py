@@ -469,7 +469,10 @@ class HttpPusher(Pusher):
             content: JsonDict = {
                 "event_id": event.event_id,
                 "room_id": event.room_id,
-                "counts": {"unread": badge},
+                "counts": {
+                    "unread": badge,
+                    "com.beeper.server_type": "synapse",
+                },
                 "prio": priority,
             }
             # event_id_only doesn't include the tweaks, so override them.
@@ -488,6 +491,7 @@ class HttpPusher(Pusher):
                 "prio": priority,
                 "counts": {
                     "unread": badge,
+                    "com.beeper.server_type": "synapse",
                     # 'missed_calls': 2
                 },
             }
@@ -523,7 +527,10 @@ class HttpPusher(Pusher):
                 "id": "",
                 "type": None,
                 "sender": "",
-                "counts": {"unread": badge},
+                "counts": {
+                    "unread": badge,
+                    "com.beeper.server_type": "synapse",
+                },
                 "devices": [
                     {
                         "app_id": self.app_id,
