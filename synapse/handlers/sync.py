@@ -57,6 +57,7 @@ from synapse.logging.opentracing import (
     start_active_span,
     trace,
 )
+from synapse.push.clientformat import format_push_rules_for_user
 from synapse.storage.database import LoggingTransaction
 from synapse.storage.databases.main.event_push_actions import RoomNotifCounts
 from synapse.storage.databases.main.roommember import extract_heroes_from_room_summary
@@ -178,6 +179,7 @@ class ArchivedSyncResult:
     timeline: TimelineBatch
     state: StateMap[EventBase]
     account_data: List[JsonDict]
+    preview: Optional[JsonDict]
 
     def __bool__(self) -> bool:
         """Make the result appear empty if there are no updates. This is used
@@ -1390,13 +1392,13 @@ class SyncHandler:
                 sync_config.user.to_string(),
             )
 
-    @cached(max_entries=1, iterable=True)
+    @cached(max_entries=50000, iterable=True)
     async def beeper_preview_for_room_id_and_user_id(
         self, room_id: str, user_id: str, to_key: RoomStreamToken
     ) -> JsonDict:
         res = {}
 
-        def _beeper_preview_for_room_id_and_user_id(txn: LoggingTransaction):
+        def _beeper_preview_for_room_id_and_user_id(txn: LoggingTransaction) -> None:
             sql = """
             SELECT e.event_id, e.origin_server_ts
                 FROM events AS e \
@@ -2654,7 +2656,7 @@ class SyncHandler:
                     unread_thread_notifications={},
                     summary=summary,
                     unread_count=0,
-                    preview=dict(),
+                    preview={},
                 )
 
                 if self.hs_config.experimental.server_side_room_preview_enabled:
