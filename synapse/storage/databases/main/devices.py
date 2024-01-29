@@ -176,7 +176,6 @@ class DeviceWorkerStore(RoomMemberWorkerStore, EndToEndKeyWorkerStore):
     ) -> None:
         if stream_name == DeviceListsStream.NAME:
             self._invalidate_caches_for_devices(token, rows)
-
         return super().process_replication_rows(stream_name, instance_name, token, rows)
 
     def process_replication_position(
@@ -203,11 +202,13 @@ class DeviceWorkerStore(RoomMemberWorkerStore, EndToEndKeyWorkerStore):
                 self.get_cached_devices_for_user.invalidate((row.entity,))
                 self._get_cached_user_device.invalidate((row.entity,))
                 self.get_device_list_last_stream_id_for_remote.invalidate((row.entity,))
+                self._device_list_federation_stream_cache.have_seen_position(token)
 
             else:
                 self._device_list_federation_stream_cache.entity_has_changed(
                     row.entity, token
                 )
+                self._device_list_stream_cache.have_seen_position(token)
 
     def get_device_stream_token(self) -> int:
         return self._device_list_id_gen.get_current_token()
