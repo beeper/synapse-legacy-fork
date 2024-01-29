@@ -622,8 +622,10 @@ class ApplicationServicesHandlerSendEventsTestCase(unittest.HomeserverTestCase):
 
         # Now, pretend that we receive a large burst of read receipts (300 total) that
         # all come in at once.
-        for i in range(300):
-            room_id = self.helper.create_room_as(self.local_user, tok=self.local_user_token)
+        for _i in range(300):
+            room_id = self.helper.create_room_as(
+                self.local_user, tok=self.local_user_token
+            )
             resp = self.helper.send(room_id, tok=self.local_user_token)
             event_id = resp["event_id"]
 

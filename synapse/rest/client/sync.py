@@ -554,15 +554,13 @@ class SyncRestServlet(RestServlet):
 
             if room.preview:
                 if "event" in room.preview:
-                    room.preview[
-                        "event"
-                    ] = await self._event_serializer.serialize_events(
-                        [room.preview["event"]],
-                        time_now,
-                        config=serialize_options,
-                    )[
-                        0
-                    ]
+                    room.preview["event"] = (
+                        await self._event_serializer.serialize_events(
+                            [room.preview["event"]],
+                            time_now,
+                            config=serialize_options,
+                        )
+                    )[0]
                 result["com.beeper.inbox.preview"] = room.preview
 
         return result
