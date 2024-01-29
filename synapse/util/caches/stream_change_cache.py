@@ -88,6 +88,9 @@ class StreamChangeCache:
         # Must be kept in sync with _cache.
         self._entity_to_key: Dict[EntityType, int] = {}
 
+        # Maximum known stream position to wait on if behind the current persisted position.
+        self.max_stream_pos = current_stream_pos
+
         # the earliest stream_pos for which we can reliably answer
         # get_all_entities_changed. In other words, one less than the earliest
         # stream_pos for which we know _cache is valid.
@@ -295,6 +298,9 @@ class StreamChangeCache:
         e1.add(entity)
         self._entity_to_key[entity] = stream_pos
         self._evict()
+
+        if stream_pos > self.max_stream_pos:
+            self.max_stream_pos = stream_pos
 
     def _evict(self) -> None:
         """
