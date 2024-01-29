@@ -37,6 +37,7 @@ class ReceiptsTestCase(unittest.HomeserverTestCase):
     servlets = [
         login.register_servlets,
         receipts.register_servlets,
+        room.register_servlets,
         synapse.rest.admin.register_servlets,
         room.register_servlets,
         sync.register_servlets,
@@ -79,7 +80,7 @@ class ReceiptsTestCase(unittest.HomeserverTestCase):
         # Attempt to send a receipt to an unknown room.
         channel = self.make_request(
             "POST",
-            "/rooms/!abc:beep/receipt/m.read/$def",
+            f"/rooms/!abc:beep/receipt/m.read/{event_id}",
             content={},
             access_token=self.tok2,
         )

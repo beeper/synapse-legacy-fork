@@ -435,3 +435,8 @@ class ExperimentalConfig(Config):
         self.server_side_room_preview_enabled: bool = experimental.get(
             "server_side_room_preview_enabled", False
         )
+
+        self.beeper_user_notification_counts_enabled = experimental.get(
+            "beeper_user_notification_counts_enabled",
+            False,
+        )
