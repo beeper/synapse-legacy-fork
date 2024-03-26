@@ -1,3 +1,9 @@
+NOTE: this is Beeper's legacy synapse fork, for latest updates see:
+
++ `Synapse: Beeper Edition <https://github.com/beeper/synapse>`_ (upstream + customizations, not a GitHub fork)
++ `synapse-fork <https://github.com/beeper/synapse-fork>`_ (direct fork of upstream where we contribute back)
+
+
 =========================================================================
 Synapse |support| |development| |documentation| |license| |pypi| |python|
 =========================================================================
