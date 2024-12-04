@@ -154,6 +154,11 @@ class InternalAuth(BaseAuth):
                             errcode=Codes.EXPIRED_ACCOUNT,
                         )
 
+            # Beep: don't care about client IPs in synapse since hungry proxies (so IP is hungry),
+            # if check here to appease sytest.
+            if not requester.user.to_string().startswith("@__ANON__"):
+                ip_addr = ""
+
             if ip_addr and (
                 not requester.app_service or self._track_appservice_user_ips
             ):

@@ -28,6 +28,8 @@ from typing import (
     cast,
 )
 
+from immutabledict import immutabledict
+
 from synapse.api.constants import EduTypes
 from synapse.api.errors import StoreError
 from synapse.replication.tcp.streams import ReceiptsStream
@@ -45,7 +47,12 @@ from synapse.storage.util.id_generators import (
     MultiWriterIdGenerator,
     StreamIdGenerator,
 )
-from synapse.types import JsonDict, JsonMapping
+from synapse.types import (
+    JsonDict,
+    JsonMapping,
+    MultiWriterStreamToken,
+    PersistedPosition,
+)
 from synapse.util import json_encoder
 from synapse.util.caches.descriptors import cached, cachedList
 from synapse.util.caches.stream_change_cache import StreamChangeCache
@@ -107,7 +114,7 @@ class ReceiptsWorkerStore(StreamWorkerStore, SQLBaseStore):
             "receipts_linearized",
             entity_column="room_id",
             stream_column="stream_id",
-            max_value=max_receipts_stream_id,
+            max_value=max_receipts_stream_id.stream,
             limit=10000,
         )
         self._receipts_stream_cache = StreamChangeCache(
@@ -116,9 +123,31 @@ class ReceiptsWorkerStore(StreamWorkerStore, SQLBaseStore):
             prefilled_cache=receipts_stream_prefill,
         )
 
-    def get_max_receipt_stream_id(self) -> int:
+    def get_max_receipt_stream_id(self) -> MultiWriterStreamToken:
         """Get the current max stream ID for receipts stream"""
-        return self._receipts_id_gen.get_current_token()
+
+        min_pos = self._receipts_id_gen.get_current_token()
+
+        positions = {}
+        if isinstance(self._receipts_id_gen, MultiWriterIdGenerator):
+            # The `min_pos` is the minimum position that we know all instances
+            # have finished persisting to, so we only care about instances whose
+            # positions are ahead of that. (Instance positions can be behind the
+            # min position as there are times we can work out that the minimum
+            # position is ahead of the naive minimum across all current
+            # positions. See MultiWriterIdGenerator for details)
+            positions = {
+                i: p
+                for i, p in self._receipts_id_gen.get_positions().items()
+                if p > min_pos
+            }
+
+        return MultiWriterStreamToken(
+            stream=min_pos, instance_map=immutabledict(positions)
+        )
+
+    def get_receipt_stream_id_for_instance(self, instance_name: str) -> int:
+        return self._receipts_id_gen.get_current_token_for_writer(instance_name)
 
     def get_last_unthreaded_receipt_for_user_txn(
         self,
@@ -270,7 +299,10 @@ class ReceiptsWorkerStore(StreamWorkerStore, SQLBaseStore):
         }
 
     async def get_linearized_receipts_for_rooms(
-        self, room_ids: Iterable[str], to_key: int, from_key: Optional[int] = None
+        self,
+        room_ids: Iterable[str],
+        to_key: MultiWriterStreamToken,
+        from_key: Optional[MultiWriterStreamToken] = None,
     ) -> List[JsonMapping]:
         """Get receipts for multiple rooms for sending to clients.
 
@@ -289,7 +321,7 @@ class ReceiptsWorkerStore(StreamWorkerStore, SQLBaseStore):
             # Only ask the database about rooms where there have been new
             # receipts added since `from_key`
             room_ids = self._receipts_stream_cache.get_entities_changed(
-                room_ids, from_key, to_key
+                room_ids, from_key.stream
             )
 
         results = await self._get_linearized_receipts_for_rooms(
@@ -299,7 +331,10 @@ class ReceiptsWorkerStore(StreamWorkerStore, SQLBaseStore):
         return [ev for res in results.values() for ev in res]
 
     async def get_linearized_receipts_for_room(
-        self, room_id: str, to_key: int, from_key: Optional[int] = None
+        self,
+        room_id: str,
+        to_key: MultiWriterStreamToken,
+        from_key: Optional[MultiWriterStreamToken] = None,
     ) -> Sequence[JsonMapping]:
         """Get receipts for a single room for sending to clients.
 
@@ -316,7 +351,7 @@ class ReceiptsWorkerStore(StreamWorkerStore, SQLBaseStore):
             # Check the cache first to see if any new receipts have been added
             # since`from_key`. If not we can no-op.
             if not self._receipts_stream_cache.has_entity_changed(
-                room_id, from_key, to_key
+                room_id, from_key.stream
             ):
                 return []
 
@@ -324,29 +359,40 @@ class ReceiptsWorkerStore(StreamWorkerStore, SQLBaseStore):
 
     @cached(tree=True)
     async def _get_linearized_receipts_for_room(
-        self, room_id: str, to_key: int, from_key: Optional[int] = None
+        self,
+        room_id: str,
+        to_key: MultiWriterStreamToken,
+        from_key: Optional[MultiWriterStreamToken] = None,
     ) -> Sequence[JsonMapping]:
         """See get_linearized_receipts_for_room"""
 
         def f(txn: LoggingTransaction) -> List[Tuple[str, str, str, str]]:
             if from_key:
-                sql = (
-                    "SELECT receipt_type, user_id, event_id, data"
-                    " FROM receipts_linearized WHERE"
-                    " room_id = ? AND stream_id > ? AND stream_id <= ?"
-                )
+                sql = """
+                    SELECT stream_id, instance_name, receipt_type, user_id, event_id, data
+                    FROM receipts_linearized
+                    WHERE room_id = ? AND stream_id > ? AND stream_id <= ?
+                """
 
-                txn.execute(sql, (room_id, from_key, to_key))
+                txn.execute(
+                    sql, (room_id, from_key.stream, to_key.get_max_stream_pos())
+                )
             else:
-                sql = (
-                    "SELECT receipt_type, user_id, event_id, data"
-                    " FROM receipts_linearized WHERE"
-                    " room_id = ? AND stream_id <= ?"
+                sql = """
+                    SELECT stream_id, instance_name, receipt_type, user_id, event_id, data
+                    FROM receipts_linearized WHERE
+                    room_id = ? AND stream_id <= ?
+                """
+
+                txn.execute(sql, (room_id, to_key.get_max_stream_pos()))
+
+            return [
+                (receipt_type, user_id, event_id, data)
+                for stream_id, instance_name, receipt_type, user_id, event_id, data in txn
+                if MultiWriterStreamToken.is_stream_position_in_range(
+                    from_key, to_key, instance_name, stream_id
                 )
-
-                txn.execute(sql, (room_id, to_key))
-
-            return cast(List[Tuple[str, str, str, str]], txn.fetchall())
+            ]
 
         rows = await self.db_pool.runInteraction("get_linearized_receipts_for_room", f)
 
@@ -367,7 +413,10 @@ class ReceiptsWorkerStore(StreamWorkerStore, SQLBaseStore):
         num_args=3,
     )
     async def _get_linearized_receipts_for_rooms(
-        self, room_ids: Collection[str], to_key: int, from_key: Optional[int] = None
+        self,
+        room_ids: Collection[str],
+        to_key: MultiWriterStreamToken,
+        from_key: Optional[MultiWriterStreamToken] = None,
     ) -> Mapping[str, Sequence[JsonMapping]]:
         if not room_ids:
             return {}
@@ -377,7 +426,8 @@ class ReceiptsWorkerStore(StreamWorkerStore, SQLBaseStore):
         ) -> List[Tuple[str, str, str, str, Optional[str], str]]:
             if from_key:
                 sql = """
-                    SELECT room_id, receipt_type, user_id, event_id, thread_id, data
+                    SELECT stream_id, instance_name, room_id, receipt_type,
+                        user_id, event_id, thread_id, data
                     FROM receipts_linearized WHERE
                     stream_id > ? AND stream_id <= ? AND
                 """
@@ -385,10 +435,14 @@ class ReceiptsWorkerStore(StreamWorkerStore, SQLBaseStore):
                     self.database_engine, "room_id", room_ids
                 )
 
-                txn.execute(sql + clause, [from_key, to_key] + list(args))
+                txn.execute(
+                    sql + clause,
+                    [from_key.stream, to_key.get_max_stream_pos()] + list(args),
+                )
             else:
                 sql = """
-                    SELECT room_id, receipt_type, user_id, event_id, thread_id, data
+                    SELECT stream_id, instance_name, room_id, receipt_type,
+                        user_id, event_id, thread_id, data
                     FROM receipts_linearized WHERE
                     stream_id <= ? AND
                 """
@@ -397,11 +451,15 @@ class ReceiptsWorkerStore(StreamWorkerStore, SQLBaseStore):
                     self.database_engine, "room_id", room_ids
                 )
 
-                txn.execute(sql + clause, [to_key] + list(args))
+                txn.execute(sql + clause, [to_key.get_max_stream_pos()] + list(args))
 
-            return cast(
-                List[Tuple[str, str, str, str, Optional[str], str]], txn.fetchall()
-            )
+            return [
+                (room_id, receipt_type, user_id, event_id, thread_id, data)
+                for stream_id, instance_name, room_id, receipt_type, user_id, event_id, thread_id, data in txn
+                if MultiWriterStreamToken.is_stream_position_in_range(
+                    from_key, to_key, instance_name, stream_id
+                )
+            ]
 
         txn_results = await self.db_pool.runInteraction(
             "_get_linearized_receipts_for_rooms", f
@@ -436,7 +494,9 @@ class ReceiptsWorkerStore(StreamWorkerStore, SQLBaseStore):
     #     num_args=2,
     # )
     async def get_linearized_receipts_for_all_rooms(
-        self, to_key: int, from_key: Optional[int] = None
+        self,
+        to_key: MultiWriterStreamToken,
+        from_key: Optional[MultiWriterStreamToken] = None,
     ) -> Mapping[str, JsonMapping]:
         """Get receipts for all rooms between two stream_ids, up
         to a limit of the latest 100 read receipts.
@@ -453,25 +513,31 @@ class ReceiptsWorkerStore(StreamWorkerStore, SQLBaseStore):
         def f(txn: LoggingTransaction) -> List[Tuple[str, str, str, str, str]]:
             if from_key:
                 sql = """
-                    SELECT room_id, receipt_type, user_id, event_id, data
+                    SELECT stream_id, instance_name, room_id, receipt_type, user_id, event_id, data
                     FROM receipts_linearized WHERE
                     stream_id > ? AND stream_id <= ?
                     ORDER BY stream_id DESC
                     LIMIT 100
                 """
-                txn.execute(sql, [from_key, to_key])
+                txn.execute(sql, [from_key.stream, to_key.get_max_stream_pos()])
             else:
                 sql = """
-                    SELECT room_id, receipt_type, user_id, event_id, data
+                    SELECT stream_id, instance_name, room_id, receipt_type, user_id, event_id, data
                     FROM receipts_linearized WHERE
                     stream_id <= ?
                     ORDER BY stream_id DESC
                     LIMIT 100
                 """
 
-                txn.execute(sql, [to_key])
+                txn.execute(sql, [to_key.get_max_stream_pos()])
 
-            return cast(List[Tuple[str, str, str, str, str]], txn.fetchall())
+            return [
+                (room_id, receipt_type, user_id, event_id, data)
+                for stream_id, instance_name, room_id, receipt_type, user_id, event_id, data in txn
+                if MultiWriterStreamToken.is_stream_position_in_range(
+                    from_key, to_key, instance_name, stream_id
+                )
+            ]
 
         txn_results = await self.db_pool.runInteraction(
             "get_linearized_receipts_for_all_rooms", f
@@ -561,10 +627,11 @@ class ReceiptsWorkerStore(StreamWorkerStore, SQLBaseStore):
                 SELECT stream_id, room_id, receipt_type, user_id, event_id, thread_id, data
                 FROM receipts_linearized
                 WHERE ? < stream_id AND stream_id <= ?
+                AND instance_name = ?
                 ORDER BY stream_id ASC
                 LIMIT ?
             """
-            txn.execute(sql, (last_id, current_id, limit))
+            txn.execute(sql, (last_id, current_id, instance_name, limit))
 
             updates = cast(
                 List[Tuple[int, Tuple[str, str, str, str, Optional[str], JsonDict]]],
@@ -715,6 +782,7 @@ class ReceiptsWorkerStore(StreamWorkerStore, SQLBaseStore):
             keyvalues=keyvalues,
             values={
                 "stream_id": stream_id,
+                "instance_name": self._instance_name,
                 "event_id": event_id,
                 "event_stream_ordering": stream_ordering,
                 "data": json_encoder.encode(data),
@@ -775,7 +843,7 @@ class ReceiptsWorkerStore(StreamWorkerStore, SQLBaseStore):
         event_ids: List[str],
         thread_id: Optional[str],
         data: dict,
-    ) -> Optional[int]:
+    ) -> Optional[PersistedPosition]:
         """Insert a receipt, either from local client or remote server.
 
         Automatically does conversion between linearized and graph
@@ -838,7 +906,7 @@ class ReceiptsWorkerStore(StreamWorkerStore, SQLBaseStore):
             data,
         )
 
-        return stream_id
+        return PersistedPosition(self._instance_name, stream_id)
 
     async def _insert_graph_receipt(
         self,
